@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 import os
 from urllib.parse import quote_plus
 
-password = quote_plus(os.environ.get('MONGODB_PASSWORD', 'Test@1234'))
+password = quote_plus(os.environ.get('MONGODB_PASSWORD', ''))
 
 load_dotenv()
 app = Flask(__name__)
