@@ -155,6 +155,7 @@ def handle_transformer():
             data = request.get_json()
             tc_number = data.get('tc_number')
             feeder_id = data.get('feeder_id')
+            tc_name = data.get('tc_name')
             lat = data.get('lat')
             long = data.get('long')
 
@@ -169,7 +170,7 @@ def handle_transformer():
             if Transformer.objects(tc_number=tc_number, feeder=feeder).first():
                 return jsonify({"error": "TC with this number already exists"}), 400
 
-            transformer = Transformer(tc_number=tc_number, feeder=feeder, lat=lat, long=long)
+            transformer = Transformer(tc_number=tc_number,name=tc_name, feeder=feeder, lat=lat, long=long)
             transformer.save()
 
             return jsonify({"message": "Transformer created", "tc_id": str(transformer.id)}), 201
@@ -189,6 +190,7 @@ def handle_transformer():
                     "tc": {
                         "id": str(tc.id),
                         "name": tc.name,
+                        "tc_number": tc.tc_number,
                         "lat": tc.lat,
                         "long": tc.long,
                         "capacity": tc.capacity
@@ -200,6 +202,7 @@ def handle_transformer():
             tcs_data = [{
                 "id": str(tc.id),
                 "name": tc.name,
+                "tc_number": tc.tc_number,
                 "lat": tc.lat,
                 "long": tc.long,
                 "capacity": tc.capacity
