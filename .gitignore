@@ -1,2 +1,3 @@
 pollSurvey/
 __pycache__/
+.env

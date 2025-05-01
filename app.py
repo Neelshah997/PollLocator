@@ -13,9 +13,8 @@ load_dotenv()
 app = Flask(__name__)
 
 app.register_blueprint(poleSurvey)
-
 app.config['MONGODB_SETTINGS'] = {
-        'host': f"mongodb://qsinnotech:{password}@ac-ghjzltd-shard-00-00.foj9csc.mongodb.net:27017,ac-ghjzltd-shard-00-01.foj9csc.mongodb.net:27017,ac-ghjzltd-shard-00-02.foj9csc.mongodb.net:27017/?ssl=true&replicaSet=atlas-12dihf-shard-0&authSource=admin&retryWrites=true&w=majority&appName=Cluster0"
+        'host':f"mongodb://qsinnotech:{password}@ac-ghjzltd-shard-00-00.foj9csc.mongodb.net:27017,ac-ghjzltd-shard-00-01.foj9csc.mongodb.net:27017,ac-ghjzltd-shard-00-02.foj9csc.mongodb.net:27017/poleSurvey?ssl=true&replicaSet=atlas-12dihf-shard-0&authSource=admin&retryWrites=true&w=majority&appName=Cluster0"
 }
 
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'default_secret_key')  # default if not set
