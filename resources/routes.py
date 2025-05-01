@@ -339,7 +339,10 @@ def get_pole_numbers_by_tc():
             return jsonify({"error": "Transformer not found"}), 404
 
         poles = Pole.objects(tc=tc)
-        pole_numbers = [p.pole_number for p in poles]
+        pole_numbers = [{
+                "id": str(pole.id),
+                "pole_number": pole.pole_number,
+            } for pole in poles]
 
         return jsonify({"pole_numbers": pole_numbers}), 200
 
