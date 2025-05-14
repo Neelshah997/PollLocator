@@ -327,12 +327,11 @@ def create_pole():
             return jsonify({"error": str(e)}), 500
     if request.method == 'PATCH':
         try:
-        
             data = request.get_json()
             span_length = data.get("span_length")
             sag = data.get("sag")
             poleId = request.args['poleId']
-            pole = Pole.objects(id = poleId)
+            pole = Pole.objects(id = poleId)[0]
             pole['span_length'] = span_length
             pole['sag'] = sag
             pole.save()
