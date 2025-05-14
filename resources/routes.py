@@ -365,8 +365,8 @@ def get_pole_numbers_by_tc():
 @poleSurvey.route('/questions', methods=['GET'])
 def getQuestions():
     try:
-        existingQuestions = ["Type of Arrangement","Span Three Phase", "Span Single Phase","Type of Conductor (Weasel/Rabbit/Dog)","Type of PSC/RSJ","Condition of Pole (Good, Damage/Rusted/Bend etc.)","Danger Board","Barbed Wire","LT Cross Arm","C Type L T cross arm","L T Porcelain Pin Insulators","Connection Box","Stay set (GUY SET)","Coil Earthing","Guarding","REQUIREMENTS OF TREE CUTTING (YES/NO)"]
-        proposedQuestion = ["8mtr PSC","Danger Board","Barbed wire","Stay set (GUY SET)","Coil Earthing","Guarding","Self‐Tightening Anchoring","Self‐locking suspension clamp with pole bracket &buckle","Mid‐span Tension Joints","Stainless steel of size strap 20mm*0.7mm& Buckle width 20 mm","Insulation piercing connector (I P C)","EYE HOOKS","AB XLPE CABLE 1.1 KV 3C X 50 SQ.MM+1Cx25 SQ. MM.+1x35 SQ.MM.","AB XLPE CABLE 1.1 KV 1Cx 35 SQMM + 1CX16 SQ MM + 25 SQ MM","insulation piercing connector connection box (I P C)","connection box plat","Supply of 1‐ph Pole mounted service connection box for LT connections (8 connections)","Supply of 3‐ph Pole mounted service connection box for LT connections (4 connections)","Supply of 4Cx10 mm2 LT PVC Cable","Supply of 4Cx16 mm2 LT PVC Cable"]
+        existingQuestions = ["Type of Arrangement","Span Length", "Type of Conductor","Type of Pole","Condition of Pole","Danger Board","Barbed Wire","LT Cross Arm","C Type L T cross arm","L T Porcelain Pin Insulators","Connection Box","Stay set (GUY SET)","Coil Earthing","Guarding","TREE CUTTING"]
+        proposedQuestion = ["Coil Earthing","Guarding","Suspension Clamp","Mid‐span Joints","Stainless steel-20mm*0.7mm",,"IPC","EYE HOOKS","1PH Connection Box(8 connections)","3PH Connection Box(4 connections)","4Cx10 mm2 LT PVC Cable","4Cx16 mm2 LT PVC Cable"]
 
         return jsonify([{"existingQuestions": existingQuestions},{"proposedQuestion":proposedQuestion}]), 200
 
