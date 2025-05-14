@@ -330,7 +330,7 @@ def create_pole():
             data = request.get_json()
             span_length = data.get("span_length")
             sag = data.get("sag")
-            poleId = request.args['poleId']
+            poleId = request.args['pole_id']
             pole = Pole.objects(id = poleId)[0]
             pole['span_length'] = span_length
             pole['sag'] = sag
