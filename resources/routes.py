@@ -330,11 +330,11 @@ def create_pole():
         
             data = request.get_json()
             span_length = data.get("span_length")
-            seg = data.get("seg")
-            poleId = data.get("poleId")
+            sag = data.get("sag")
+            poleId = request.args['poleId']
             pole = Pole.objects(id = poleId)
             pole['span_length'] = span_length
-            pole['seg'] = seg
+            pole['sag'] = sag
             pole.save()
             return jsonify({"message": "Pole updated successfully"}), 200
         except Exception as e:

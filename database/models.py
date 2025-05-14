@@ -96,7 +96,7 @@ class Pole(Document):
     created_at = DateTimeField(default=datetime.utcnow)
     existing_info = DictField()  # Store 1-20 keys
     proposed_materials = DictField()  # Store 21-40 keys
-    seg = IntField()
+    sag = IntField()
     def to_json(self):
         return {
             "id": str(self.id),
