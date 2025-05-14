@@ -1,6 +1,6 @@
 # models.py
 
-from mongoengine import Document, StringField, ReferenceField, DateTimeField,FloatField,BooleanField,DictField
+from mongoengine import Document, StringField, ReferenceField, DateTimeField,FloatField,BooleanField,DictField,IntField
 from datetime import datetime
 
 class Role(Document):
@@ -96,6 +96,7 @@ class Pole(Document):
     created_at = DateTimeField(default=datetime.utcnow)
     existing_info = DictField()  # Store 1-20 keys
     proposed_materials = DictField()  # Store 21-40 keys
+    seg = IntField()
     def to_json(self):
         return {
             "id": str(self.id),

@@ -262,7 +262,7 @@ def haversine(lat1, lon1, lat2, lon2):
 
     return R * c  # in meters
 
-@poleSurvey.route('/pole', methods=['POST','GET'])
+@poleSurvey.route('/pole', methods=['POST','GET','PATCH'])
 def create_pole():
     if request.method == 'POST':
         try:
@@ -304,14 +304,14 @@ def create_pole():
                 previous_connector=f"{previous_connector_type}-{previous_connector_id}",
                 lat=lat,
                 long=long,
-                span_length=span_length
+                span_length=round(span_length,2)
             )
             pole.save()
 
             return jsonify({
                 "message": "pole created successfully",
                 "pole_id": str(pole.id),
-                "span_length": span_length
+                "span_length": round(span_length,2)
             }), 201
 
         except Exception as e:
@@ -325,31 +325,44 @@ def create_pole():
         except Exception as e:
             print(traceback.format_exc())
             return jsonify({"error": str(e)}), 500
-    
-    
+    if request.method == 'PATCH':
+        try:
+        
+            data = request.get_json()
+            span_length = data.get("span_length")
+            seg = data.get("seg")
+            poleId = data.get("poleId")
+            pole = Pole.objects(id = poleId)
+            pole['span_length'] = span_length
+            pole['seg'] = seg
+            pole.save()
+            return jsonify({"message": "Pole updated successfully"}), 200
+        except Exception as e:
+            print(traceback.format_exc())
+            return jsonify({"error": str(e)}), 500
 @poleSurvey.route('/poles', methods=['GET'])
 def get_pole_numbers_by_tc():
-    try:
-        tc_id = request.args.get('tc_id')
-        if not tc_id:
-            return jsonify({"error": "tc_id is required"}), 400
+    if request.method == 'GET':
+        try:
+            tc_id = request.args.get('tc_id')
+            if not tc_id:
+                return jsonify({"error": "tc_id is required"}), 400
 
-        tc = Transformer.objects(id=tc_id).first()
-        if not tc:
-            return jsonify({"error": "Transformer not found"}), 404
+            tc = Transformer.objects(id=tc_id).first()
+            if not tc:
+                return jsonify({"error": "Transformer not found"}), 404
 
-        poles = Pole.objects(tc=tc)
-        pole_numbers = [{
-                "id": str(pole.id),
-                "pole_number": pole.pole_number,
-            } for pole in poles]
+            poles = Pole.objects(tc=tc)
+            pole_numbers = [{
+                    "id": str(pole.id),
+                    "pole_number": pole.pole_number,
+                } for pole in poles]
 
-        return jsonify({"pole_numbers": pole_numbers}), 200
-
-    except Exception as e:
-        print(traceback.format_exc())
-        return jsonify({"error": str(e)}), 500
-
+            return jsonify({"pole_numbers": pole_numbers}), 200
+        except Exception as e:
+            print(traceback.format_exc())
+            return jsonify({"error": str(e)}), 500
+    
 @poleSurvey.route('/questions', methods=['GET'])
 def getQuestions():
     try:
