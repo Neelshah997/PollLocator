@@ -381,13 +381,13 @@ def fillMaterial(poleId):
         if request.args["poleType"] == "existing":
             existingvalues = request.json
             for key, value in existingvalues.items():
-                if key in pole.existing_materials:
-                    pole.existing_materials[key] = value
+                if key in pole.existing_info:
+                    pole.existing_info[key] = value
                 elif key in pole.proposed_materials:
                     pole.proposed_materials[key] = value
         elif request.args["poleType"] == "new_proposed":
             pole.proposed_materials = request.json
-        print(pole.existing_materials)
+        print(pole.existing_info)
         print(pole.proposed_materials)
         pole.save()
         return jsonify(pole.to_json()), 200
