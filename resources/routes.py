@@ -365,8 +365,8 @@ def get_pole_numbers_by_tc():
 @poleSurvey.route('/questions', methods=['GET'])
 def getQuestions():
     try:
-        existingQuestions = ["Type of Arrangement","Span Length", "Type of Conductor","Type of Pole","Condition of Pole","Danger Board","Barbed Wire","LT Cross Arm","C Type L T cross arm","L T Porcelain Pin Insulators","Connection Box","Stay set (GUY SET)","Coil Earthing","Guarding","TREE CUTTING"]
-        proposedQuestion = ["Coil Earthing","Guarding","Suspension Clamp","Mid‐span Joints","Stainless steel-20mm*0.7mm","IPC","EYE HOOKS","1PH Connection Box(8 connections)","3PH Connection Box(4 connections)","4Cx10 mm2 LT PVC Cable","4Cx16 mm2 LT PVC Cable"]
+        existingQuestions = ["Type of Arrangement","Type of Conductor","Type of Pole","Condition of Pole","Danger Board","Barbed Wire","LT Cross Arm","C Type L T cross arm","L T Porcelain Pin Insulators","Connection Box","Stay set (GUY SET)","Coil Earthing","Guarding","TREE CUTTING"]
+        proposedQuestion = ["Coil Earthing","Guarding","TREE CUTTING","Self-Tightening Anchoring Clamp","Suspension Clamp","Mid‐span Joints","Stainless steel-20mm*0.7mm","IPC","EYE HOOKS","1PH Connection Box(8 connections)","3PH Connection Box(4 connections)","4Cx10 mm2 LT PVC Cable","4Cx16 mm2 LT PVC Cable"]
         print(existingQuestions)
         return jsonify([{"existingQuestions": existingQuestions},{"proposedQuestion":proposedQuestion}]), 200
 
@@ -380,6 +380,7 @@ def fillMaterial(poleId):
         pole = Pole.objects(id = poleId).first()
         if request.args["poleType"] == "existing":
             existingvalues = request.json
+            print(existingvalues)
             for key, value in existingvalues.items():
                 if key in pole.existing_info:
                     pole.existing_info[key] = value

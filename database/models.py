@@ -94,8 +94,37 @@ class Pole(Document):
     long = FloatField()
     span_length = FloatField()  # in meters
     created_at = DateTimeField(default=datetime.utcnow)
-    existing_info = DictField()  # Store 1-20 keys
-    proposed_materials = DictField()  # Store 21-40 keys
+    existing_info = DictField(default = lambda:{"Type of Arrangement": "",
+    "Type of Conductor": "",
+    "Type of Pole": "",
+    "Condition of Pole": "",
+    "Danger Board": "",
+    "Barbed Wire": "",
+    "LT Cross Arm": "",
+    "C Type L T cross arm": "",
+    "L T Porcelain Pin Insulators": "",
+    "Connection Box": "",
+    "Stay set (GUY SET)": "",
+    "Coil Earthing": "",
+    "Guarding": "",
+    "TREE CUTTING": "",
+    })  # Store 1-20 keys
+    proposed_materials = DictField(default = lambda:{
+        "Coil Earthing": "",
+    "Guarding": "",
+    "TREE CUTTING": "",
+    "Self-Tightening Anchoring Clamp": "",
+    "Suspension Clamp": "",
+    "Mid‐span Joints": "",
+    "Stainless steel-20mm*0.7mm": "",
+    "IPC": "",
+    "EYE HOOKS": "",
+    "1PH Connection Box(8 connections)": "",
+    "3PH Connection Box(4 connections)": "",
+    "4Cx10 mm2 LT PVC Cable": "",
+    "4Cx16 mm2 LT PVC Cable": "",
+    "8mtr PSC": "1"
+    })  # Store 21-40 keys
     sag = IntField()
     def to_json(self):
         return {
