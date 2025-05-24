@@ -66,20 +66,37 @@ def generate_feeder_pole_excel(feeder_name,subdivision, poles):
         workbook = writer.book
         worksheet = workbook.add_worksheet("Pole Schedule")
         writer.sheets["Pole Schedule"] = worksheet
-        basic_formater = {'bold': True, 'align': 'center', 'valign': 'vcenter', 'border': 1}
+        basic_formater = {'align': 'center', 'valign': 'vcenter', 'border': 1}
         # Header formatting
+        left_border = workbook.add_format({'border': 1,'left':2})
+        right_border = workbook.add_format({'border': 1, 'right':2})
+        bottom_right = workbook.add_format({'border': 1, 'right':2, 'bottom':2})
+        bottom_left = workbook.add_format({'border': 1, 'left':2, 'bottom':2})
+        bottom_row = workbook.add_format({'border': 1, 'bottom':2})
         title_format = basic_formater.copy()
         title_format['bg_color'] = '#F4B084'
+        title_format['border'] = 2
+        title_format['bold'] = True
         bold_center = workbook.add_format(title_format)
         
         existing_format = basic_formater.copy()
         existing_format['bg_color'] = '#FFFF00'
+        existing_format['border'] = 2
+        existing_format['bold'] = True
         existing_title_workbook = workbook.add_format(existing_format)
         
         new_format = basic_formater.copy()
         new_format['bg_color'] = '#B4C6E7'
+        new_format['border'] = 2
+        new_format['bold'] = True
         new_title_workbook = workbook.add_format(new_format)
-        subHeader_format = workbook.add_format({'align': 'center', 'valign': 'vcenter', 'border': 1})
+        
+        
+        subHeader_format = workbook.add_format({'align': 'center', 'valign': 'vcenter', 'border': 2,'text_wrap': True})
+        
+        
+        data_cell_format = workbook.add_format(basic_formater)
+        
         
         pass
         # First Row: Main Title
@@ -109,20 +126,36 @@ def generate_feeder_pole_excel(feeder_name,subdivision, poles):
         start_column = 3
         for col_num, col_title in enumerate(headers):
             colIndex = col_num + start_column
-            worksheet.merge_range(3, colIndex, 5, colIndex,col_title,subHeader_format)
+            worksheet.merge_range(3, colIndex, 13, colIndex,col_title,subHeader_format)
         # Fifth Row: Units (manually set as needed)
         units = ["Unit"]+ [""] * 6 + ["Type", "MTR", "MTR", "MTR", "Type", "Type", "Type", "No", "KG", "NO", "No", "No", "NO", "No", "No", "MTR", "NO", "NO", "NO"] + \
                 ["No", "No", "No", "No", "No", "No", "No", "No", "No", "MTR", "MTR", "NO", "NO", "MTR", "MTR"]
         for col_num, unit in enumerate(units):
             colIndex = col_num + start_column
-            worksheet.write(6, colIndex, unit)
+            if col_num == 0:
+                worksheet.write(14, colIndex, unit,left_border)
+            elif col_num == len(data[0])-1:
+                worksheet.write(14, colIndex, unit,right_border)
+            else:
+                worksheet.write(14, colIndex, unit,data_cell_format)
         
         # Step 7: Write Data
-        for row_num, row_data in enumerate(data, start=7):  # Start after 5 header rows
+        for row_num, row_data in enumerate(data, start=15):  # Start after 5 header rows
             for col_num, cell in enumerate(row_data):
                 colIndex = col_num + start_column
-                worksheet.write(row_num, colIndex, cell)
-
+                if colIndex == 3 and row_num == len(data)-1:
+                    worksheet.write(row_num, colIndex, cell,bottom_left)
+                elif col_num == len(data[0])-1 and row_num == 15+len(data)-1:
+                    worksheet.write(row_num, colIndex, cell,bottom_right)
+                elif colIndex == 3:
+                    worksheet.write(row_num, colIndex, cell,left_border)
+                elif col_num == len(data[0])-1:
+                    worksheet.write(row_num, colIndex, cell,right_border)
+                elif row_num == 15+len(data)-1:
+                    worksheet.write(row_num, colIndex, cell,bottom_row)
+                else:
+                    worksheet.write(row_num, colIndex, cell,data_cell_format)
+                
         # writer.close()
 
     output.seek(0)
