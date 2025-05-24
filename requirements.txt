@@ -7,3 +7,6 @@ flask-jwt-extended==4.4.4
 flask-bcrypt==1.0.1
 bcrypt==3.2.2
 python-dotenv==1.1.0
+XlsxWriter==3.2.3
+pandas==2.2.3
+openpyxl==3.1.5
