@@ -96,6 +96,8 @@ class Pole(Document):
     created_at = DateTimeField(default=datetime.utcnow)
     existing_info = DictField(default = lambda:{"Type of Arrangement": "",
     "Type of Conductor": "",
+    "Span Three Phase": "",
+    "Span Single Phase": "",
     "Type of Pole": "",
     "Condition of Pole": "",
     "Danger Board": "",
@@ -112,7 +114,6 @@ class Pole(Document):
     proposed_materials = DictField(default = lambda:{
         "Coil Earthing": "",
     "Guarding": "",
-    "TREE CUTTING": "",
     "Self-Tightening Anchoring Clamp": "",
     "Suspension Clamp": "",
     "Mid‐span Joints": "",
@@ -123,7 +124,12 @@ class Pole(Document):
     "3PH Connection Box(4 connections)": "",
     "4Cx10 mm2 LT PVC Cable": "",
     "4Cx16 mm2 LT PVC Cable": "",
-    "8mtr PSC": "1"
+    "8mtr PSC": "",
+    "Danger Board": "",
+    "Barbed Wire": "",
+    "Stay set (GUY SET)":"",
+    "3Core Wire":"",
+    "1Core Wire":""
     })  # Store 21-40 keys
     sag = IntField()
     def to_json(self):

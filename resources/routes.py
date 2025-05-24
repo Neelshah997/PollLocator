@@ -1,9 +1,10 @@
-from flask import Blueprint,render_template,request,Response,jsonify
+from flask import Blueprint,render_template,request,Response,jsonify, send_file
 import json,traceback
 from database.models import *
 from flask_jwt_extended import JWTManager, create_access_token
-
-
+# import pandas as pd
+from io import BytesIO
+from impl.excel_generator import generate_feeder_pole_excel
 
 poleSurvey = Blueprint('poleSurvey',__name__)
 
@@ -366,7 +367,7 @@ def get_pole_numbers_by_tc():
 def getQuestions():
     try:
         existingQuestions = ["Type of Arrangement","Type of Conductor","Type of Pole","Condition of Pole","Danger Board","Barbed Wire","LT Cross Arm","C Type L T cross arm","L T Porcelain Pin Insulators","Connection Box","Stay set (GUY SET)","Coil Earthing","Guarding","TREE CUTTING"]
-        proposedQuestion = ["Coil Earthing","Guarding","TREE CUTTING","Self-Tightening Anchoring Clamp","Suspension Clamp","Mid‐span Joints","Stainless steel-20mm*0.7mm","IPC","EYE HOOKS","1PH Connection Box(8 connections)","3PH Connection Box(4 connections)","4Cx10 mm2 LT PVC Cable","4Cx16 mm2 LT PVC Cable"]
+        proposedQuestion = ["Type of Arrangement","Coil Earthing","Guarding","Self-Tightening Anchoring Clamp","Suspension Clamp","Mid‐span Joints","Stainless steel-20mm*0.7mm","IPC","EYE HOOKS","1PH Connection Box(8 connections)","3PH Connection Box(4 connections)","4Cx10 mm2 LT PVC Cable","4Cx16 mm2 LT PVC Cable"]
         print(existingQuestions)
         return jsonify([{"existingQuestions": existingQuestions},{"proposedQuestion":proposedQuestion}]), 200
 
@@ -378,20 +379,55 @@ def getQuestions():
 def fillMaterial(poleId):
     try:
         pole = Pole.objects(id = poleId).first()
-        if request.args["poleType"] == "existing":
-            existingvalues = request.json
-            print(existingvalues)
-            for key, value in existingvalues.items():
-                if key in pole.existing_info:
-                    pole.existing_info[key] = value
-                elif key in pole.proposed_materials:
-                    pole.proposed_materials[key] = value
-        elif request.args["poleType"] == "new_proposed":
-            pole.proposed_materials = request.json
-        print(pole.existing_info)
-        print(pole.proposed_materials)
+        # if request.args["poleType"] == "existing":
+        existingvalues = request.json
+        if pole.is_existing == True:
+            pole.proposed_materials['8mtr PSC'] = 1
+            pole.proposed_materials['Danger Board'] = 1
+            pole.proposed_materials['Barbed Wire'] = 1
+            pole.proposed_materials['Stay set'] = 1
+        for key, value in existingvalues.items():
+            if key in pole.existing_info:
+                pole.existing_info[key] = value
+            elif key in pole.proposed_materials:
+                pole.proposed_materials[key] = value
+        if existingvalues['Type of Arrangement'] == "3Ph":
+            if pole.is_existing == True:
+                pole.existing_info['Span Three Phase'] = pole.span_length
+            pole.proposed_materials['3Core Wire'] = pole.span_length
+        elif pole.proposed_materials['Type of Arrangement'] == "1Ph":
+            if pole.is_existing == True:
+                pole.proposed_materials['1Core Wire'] = pole.span_length
+            pole.existing_info['Span Single Phase'] = pole.span_length
         pole.save()
         return jsonify(pole.to_json()), 200
+    except Exception as e:
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+            
+
+@poleSurvey.route("/export/pole-schedule/<feeder_id>", methods=["GET"])
+def export_feeder_poles(feeder_id):
+    try:
+        # def export_feeder_poles(feeder_id):
+        transformers = Transformer.objects(feeder=feeder_id)
+        transformer_ids = [t.id for t in transformers]
+
+        # Step 2: Get all poles for these transformers
+        poles = Pole.objects(tc__in=transformer_ids)
+
+        # Step 3: Get feeder, subdivision info
+        feeder = Feeder.objects.get(id=feeder_id)
+        subdivision = feeder.subdivision.name
+        feeder_name = feeder.name
+        excel_stream = generate_feeder_pole_excel(feeder_name,subdivision, poles)
+
+        return send_file(
+            excel_stream,
+            download_name=f"{feeder.name}_PoleScheduler.xlsx",
+            as_attachment=True,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
     except Exception as e:
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
