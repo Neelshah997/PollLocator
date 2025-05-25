@@ -397,8 +397,8 @@ def fillMaterial(poleId):
             pole.proposed_materials['3Core Wire'] = pole.span_length
         elif pole.proposed_materials['Type of Arrangement'] == "1Ph":
             if pole.is_existing == True:
-                pole.proposed_materials['1Core Wire'] = pole.span_length
-            pole.existing_info['Span Single Phase'] = pole.span_length
+                pole.existing_info['Span Single Phase'] = pole.span_length
+            pole.proposed_materials['1Core Wire'] = pole.span_length
         pole.save()
         return jsonify(pole.to_json()), 200
     except Exception as e:
