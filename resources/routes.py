@@ -395,7 +395,7 @@ def fillMaterial(poleId):
             if pole.is_existing == True:
                 pole.existing_info['Span Three Phase'] = pole.span_length
             pole.proposed_materials['3Core Wire'] = pole.span_length
-        elif pole.proposed_materials['Type of Arrangement'] == "1Ph":
+        elif existingvalues['Type of Arrangement'] == "1Ph":
             if pole.is_existing == True:
                 pole.existing_info['Span Single Phase'] = pole.span_length
             pole.proposed_materials['1Core Wire'] = pole.span_length
