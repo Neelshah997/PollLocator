@@ -379,26 +379,31 @@ def getQuestions():
 def fillMaterial(poleId):
     try:
         pole = Pole.objects(id = poleId).first()
-        # if request.args["poleType"] == "existing":
+        requestPoleType = request.get("poleType", "new_proposed")  # Default to 'new_proposed' if not provided
         existingvalues = request.json
-        if pole.is_existing == True:
+        if pole.is_existing == False:
             pole.proposed_materials['8mtr PSC'] = 1
             pole.proposed_materials['Danger Board'] = 1
             pole.proposed_materials['Barbed Wire'] = 1
             pole.proposed_materials['Stay set'] = 1
         for key, value in existingvalues.items():
             if key in pole.existing_info:
-                pole.existing_info[key] = value
+                if requestPoleType=='existing' and key == 'Type of Arrangement':
+                    pole.existing_info[key] = value
+                elif key != 'Type of Arrangement':
+                    pole.existing_info[key] = value
             elif key in pole.proposed_materials:
                 pole.proposed_materials[key] = value
         if existingvalues['Type of Arrangement'] == "3Ph":
-            if pole.is_existing == True:
+            if pole.is_existing == True and requestPoleType=='existing':
                 pole.existing_info['Span Three Phase'] = pole.span_length
-            pole.proposed_materials['3Core Wire'] = pole.span_length
+            elif requestPoleType=='new_proposed':
+                pole.proposed_materials['3Core Wire'] = pole.span_length
         elif existingvalues['Type of Arrangement'] == "1Ph":
-            if pole.is_existing == True:
+            if pole.is_existing == True and requestPoleType=='existing':
                 pole.existing_info['Span Single Phase'] = pole.span_length
-            pole.proposed_materials['1Core Wire'] = pole.span_length
+            elif requestPoleType=='new_proposed':
+                pole.proposed_materials['1Core Wire'] = pole.span_length
         pole.save()
         return jsonify(pole.to_json()), 200
     except Exception as e:
