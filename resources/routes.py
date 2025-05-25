@@ -379,7 +379,7 @@ def getQuestions():
 def fillMaterial(poleId):
     try:
         pole = Pole.objects(id = poleId).first()
-        requestPoleType = request.get("poleType", "new_proposed")  # Default to 'new_proposed' if not provided
+        requestPoleType = request.args.get("poleType", "new_proposed")  # Default to 'new_proposed' if not provided
         existingvalues = request.json
         if pole.is_existing == False:
             pole.proposed_materials['8mtr PSC'] = 1
