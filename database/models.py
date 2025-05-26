@@ -117,7 +117,7 @@ class Pole(Document):
     "Self-Tightening Anchoring Clamp": "",
     "Suspension Clamp": "",
     "Mid‐span Joints": "",
-    "Stainless steel-20mm*0.7mm": "",
+    "Stainless steel-20mm": "",
     "IPC": "",
     "EYE HOOKS": "",
     "1PH Connection Box(8 connections)": "",

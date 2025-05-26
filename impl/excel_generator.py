@@ -45,7 +45,7 @@ def generate_feeder_pole_excel(feeder_name,subdivision, poles):
             proposed.get("Self-Tightening Anchoring Clamp", ""),
             proposed.get("Suspension Clamp", ""),
             proposed.get("Mid‐span Joints", ""),
-            proposed.get("Stainless steel-20mm*0.7mm", ""),
+            proposed.get("Stainless steel-20mm", ""),
             proposed.get("IPC", ""),
             proposed.get("EYE HOOKS", ""),
             proposed.get("3Core Wire", ""),
