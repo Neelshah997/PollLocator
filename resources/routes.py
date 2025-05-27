@@ -387,12 +387,9 @@ def fillMaterial(poleId):
             pole.proposed_materials['Barbed Wire'] = 1
             pole.proposed_materials['Stay set'] = 1
         for key, value in existingvalues.items():
-            if key in pole.existing_info:
-                if requestPoleType=='existing' and key == 'Type of Arrangement':
-                    pole.existing_info[key] = value
-                elif key != 'Type of Arrangement':
-                    pole.existing_info[key] = value
-            elif key in pole.proposed_materials:
+            if requestPoleType == 'existing':
+                pole.existing_info[key] = value
+            elif requestPoleType == 'new_proposed':
                 pole.proposed_materials[key] = value
         if existingvalues['Type of Arrangement'] == "3Ph":
             if pole.is_existing == True and requestPoleType=='existing':
