@@ -366,10 +366,73 @@ def get_pole_numbers_by_tc():
 @poleSurvey.route('/questions', methods=['GET'])
 def getQuestions():
     try:
-        existingQuestions = ["Type of Arrangement","Type of Conductor","Type of Pole","Condition of Pole","Danger Board","Barbed Wire","LT Cross Arm","C Type L T cross arm","L T Porcelain Pin Insulators","Connection Box","Stay set (GUY SET)","Coil Earthing","Guarding","TREE CUTTING"]
-        proposedQuestion = ["Type of Arrangement","Coil Earthing","Guarding","Self-Tightening Anchoring Clamp","Suspension Clamp","Mid‐span Joints","Stainless steel-20mm","IPC","EYE HOOKS","1PH Connection Box(8 connections)","3PH Connection Box(4 connections)","4Cx10 mm2 LT PVC Cable","4Cx16 mm2 LT PVC Cable"]
-        print(existingQuestions)
-        return jsonify([{"existingQuestions": existingQuestions},{"proposedQuestion":proposedQuestion}]), 200
+        # Original list of existing questions, now we need to enrich them with types
+        existing_questions_list = [
+            "Type of Arrangement",
+            "Type of Conductor",
+            "Type of Pole", # This was "Type of PSC/RSJ" in excel, assuming "Type of Pole" covers it
+            "Condition of Pole",
+            "Danger Board",
+            "Barbed wire",
+            "LT Cross Arm",
+            "C Type L T cross arm",
+            "L T Porcelain Pin Insulators",
+            "Connection Box",
+            "Stay set (GUY SET)",
+            "Coil Earthing",
+            "Guarding",
+            "TREE CUTTING" # Assuming this maps to "REQUIREMENTS OF TREE CUTTING (YES/NO)"
+        ]
+
+        # Original list of proposed questions, now we need to enrich them with types
+        proposed_questions_list = [
+            "Type of Arrangement",
+            "Coil Earthing",
+            "Guarding",
+            "Self-Tightening Anchoring Clamp",
+            "Suspension Clamp", # Assuming this is "Self-locking suspensionclam with pole bracket"
+            "Mid-span Joints",
+            "Stainless steel-20mm", # Assuming this is "Stainless steel of size strap 20mm*0.7mm& Buc"
+            "IPC", # Assuming this is "Insulation piercing connector (I P C)"
+            "EYE HOOKS",
+            "1PH Connection Box(8 connections)", # Assuming this maps to "Supply of 1-Ph Pole mounted service connection"
+            "3PH Connection Box(4 connections)", # Assuming this maps to "Supply of 3-ph Pole mounted service connector"
+            "4Cx10 mm2 LT PVC Cable",
+            "4Cx16 mm2 LT PVC Cable"
+        ]
+
+        # Function to map questions to their types
+        def get_typed_questions(questions_list):
+            typed_questions = []
+            for q in questions_list:
+                if q == "Type of Arrangement":
+                    typed_questions.append({"question": q, "type": "string", "options": ["1Ph", "3Ph"]})
+                elif q == "Type of Conductor":
+                    typed_questions.append({"question": q, "type": "string", "options": ["Dog", "Rabbit", "Weasel"]})
+                elif q == "Type of Pole":
+                    typed_questions.append({"question": q, "type": "string", "options": ["PSC", "RSJ"]})
+                elif q == "Condition of Pole":
+                    typed_questions.append({"question": q, "type": "string", "options": ["Good", "Damaged", "Rusted",'Bend']})
+                elif q == "TREE CUTTING":
+                     typed_questions.append({"question": q, "type": "string", "options": ["YES", "NO"]})
+                elif q == "Suspension Clamp":
+                     typed_questions.append({"question": q, "type": "integer"})
+                elif q == "Stainless steel-20mm":
+                     typed_questions.append({"question": q, "type": "integer"})
+                else:
+                    # For direct matches, get type from definitions, default to 'string' if not found
+                    typed_questions.append({"question": q, "type": "integer"})
+            return typed_questions
+
+
+        existing_questions_typed = get_typed_questions(existing_questions_list)
+        proposed_questions_typed = get_typed_questions(proposed_questions_list)
+
+
+        return jsonify([
+            {"existingQuestions": existing_questions_typed},
+            {"proposedQuestion": proposed_questions_typed}
+        ]), 200
 
     except Exception as e:
         print(traceback.format_exc())
