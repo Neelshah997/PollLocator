@@ -29,6 +29,7 @@ class User(Document):
     phone = StringField(required=True, unique=True)
     role = ReferenceField(Role, required=True)
     created_at = DateTimeField(default=datetime.utcnow)
+    token_version = IntField(default=1)
 
     def to_json(self):
         return {
@@ -36,8 +37,9 @@ class User(Document):
             "name": self.name,
             "email": self.email,
             "phone": self.phone,
+            "number": self.phone,
             "role": self.role.name if self.role else None,
-            "created_at": self.created_at.isoformat(),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 class Division(Document):

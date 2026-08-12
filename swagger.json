@@ -1,0 +1,516 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Pole Locator Survey API",
+    "description": "API specification for Pole Locator & Transformer Survey Application. Supports user authentication, persistent sessions, token revocation, division/subdivision/feeder hierarchy, transformer & pole management with image blobs, survey questionnaires, and Excel schedule exports.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8095",
+      "description": "Local Server"
+    }
+  ],
+  "paths": {
+    "/healthcheck": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Check if the API service is running smoothly.",
+        "responses": {
+          "200": {
+            "description": "API is running smoothly.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "pole Survey is running smoothly"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/register": {
+      "post": {
+        "summary": "Register New User",
+        "description": "Create a new user account with a role.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "password", "phone"],
+                "properties": {
+                  "name": { "type": "string", "example": "John Doe" },
+                  "email": { "type": "string", "example": "john@example.com" },
+                  "password": { "type": "string", "example": "password123" },
+                  "phone": { "type": "string", "example": "9876543210" },
+                  "role": { "type": "string", "example": "user" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User registered successfully." },
+          "400": { "description": "Phone number already exists or invalid data." },
+          "500": { "description": "Internal Server Error." }
+        }
+      }
+    },
+    "/login": {
+      "post": {
+        "summary": "User Login",
+        "description": "Authenticate user credentials and return persistent JWT access token with expiration time.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["password"],
+                "properties": {
+                  "number": { "type": "string", "description": "Phone number of the user", "example": "7984013359" },
+                  "phone": { "type": "string", "description": "Alternative key for phone number", "example": "7984013359" },
+                  "password": { "type": "string", "example": "Neel@3315" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful. Returns access token, user metadata, and expiration date.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string" },
+                    "user": { "$ref": "#/components/schemas/User" },
+                    "expires_at": { "type": "string", "format": "date-time", "example": "2027-08-12T23:59:59Z" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Invalid credentials." },
+          "500": { "description": "Internal Server Error." }
+        }
+      }
+    },
+    "/admin/revoke-user": {
+      "post": {
+        "summary": "Force Logout / Revoke User Session (Admin)",
+        "description": "Revokes all active JWT tokens/sessions for a specified user ID or phone number.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": { "type": "string", "example": "6a034f46c1181e5e3de2a254" },
+                  "phone": { "type": "string", "example": "7984013359" },
+                  "number": { "type": "string", "example": "7984013359" },
+                  "reason": { "type": "string", "example": "Security revocation by Administrator" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User session revoked successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "User session revoked successfully." }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "User not found." }
+        }
+      }
+    },
+    "/verify-token": {
+      "get": {
+        "summary": "Verify Active JWT Token",
+        "description": "Check if the cached JWT token is valid and has not been revoked by an administrator.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Token is active and valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "valid": { "type": "boolean", "example": true },
+                    "user_id": { "type": "string", "example": "6a034f46c1181e5e3de2a254" }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token is invalid or session has been revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string", "example": "token_invalid" },
+                    "message": { "type": "string", "example": "Your session has been revoked by an administrator." }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "description": "Token has expired." }
+        }
+      }
+    },
+    "/recommendations": {
+      "get": {
+        "summary": "Get Hierarchy Recommendations",
+        "description": "Retrieve cascading divisions, subdivisions, feeders, and transformers based on query parameters.",
+        "parameters": [
+          { "in": "query", "name": "division_id", "schema": { "type": "string" }, "description": "Filter subdivisions by division ID" },
+          { "in": "query", "name": "subdivision_id", "schema": { "type": "string" }, "description": "Filter feeders by subdivision ID" },
+          { "in": "query", "name": "feeder_id", "schema": { "type": "string" }, "description": "Filter transformers by feeder ID" }
+        ],
+        "responses": {
+          "200": { "description": "Recommendations data." }
+        }
+      }
+    },
+    "/division": {
+      "post": {
+        "summary": "Create Division",
+        "description": "Create a new division.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "example": "ANJAR" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Division created." }
+        }
+      }
+    },
+    "/subdivisions": {
+      "post": {
+        "summary": "Create Subdivisions (Bulk)",
+        "description": "Create multiple subdivisions under a specified division.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["names", "division_id"],
+                "properties": {
+                  "names": { "type": "array", "items": { "type": "string" }, "example": ["ANJAR CITY", "ANJAR RURAL"] },
+                  "division_id": { "type": "string", "example": "68065afcef6820c06ae20cca" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Subdivisions created." }
+        }
+      }
+    },
+    "/feeder": {
+      "post": {
+        "summary": "Create Feeders (Bulk)",
+        "description": "Create multiple feeders under a specified subdivision.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["names", "subdivision_id"],
+                "properties": {
+                  "names": { "type": "array", "items": { "type": "string" }, "example": ["Feeder 1", "Feeder 2"] },
+                  "subdivision_id": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Feeders created." }
+        }
+      }
+    },
+    "/transformer": {
+      "get": {
+        "summary": "Get Transformer Details / List",
+        "description": "Retrieve a specific transformer by tc_id or list all transformers.",
+        "parameters": [
+          { "in": "query", "name": "tc_id", "schema": { "type": "string" }, "description": "Optional Transformer ID to fetch specific TC." }
+        ],
+        "responses": {
+          "200": { "description": "Transformer details or list of transformers." }
+        }
+      },
+      "post": {
+        "summary": "Create Transformer (TC)",
+        "description": "Create a new transformer. Accepts image file or base64 photo.",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/TransformerInput" } },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tc_number": { "type": "string" },
+                  "feeder_id": { "type": "string" },
+                  "name": { "type": "string" },
+                  "lat": { "type": "number" },
+                  "long": { "type": "number" },
+                  "capacity": { "type": "string" },
+                  "image": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Transformer created." }
+        }
+      },
+      "patch": {
+        "summary": "Update Transformer (TC)",
+        "description": "Update details or photo of an existing transformer.",
+        "parameters": [
+          { "in": "query", "name": "tc_id", "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/TransformerInput" } },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "tc_number": { "type": "string" },
+                  "lat": { "type": "number" },
+                  "long": { "type": "number" },
+                  "capacity": { "type": "string" },
+                  "image": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Transformer updated successfully." }
+        }
+      }
+    },
+    "/pole": {
+      "get": {
+        "summary": "Get Pole Details",
+        "description": "Retrieve a specific pole document by poleId.",
+        "parameters": [
+          { "in": "query", "name": "poleId", "required": true, "schema": { "type": "string" }, "description": "ID of the Pole document." }
+        ],
+        "responses": {
+          "200": { "description": "Pole details with image Data URL." }
+        }
+      },
+      "post": {
+        "summary": "Create Pole",
+        "description": "Create a new pole with automatic span length calculation and photo upload.",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/PoleInput" } },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tc_id": { "type": "string" },
+                  "pole_number": { "type": "string" },
+                  "is_existing": { "type": "boolean" },
+                  "previous_connector_type": { "type": "string", "enum": ["tc", "pole"] },
+                  "previous_connector_id": { "type": "string" },
+                  "lat": { "type": "number" },
+                  "long": { "type": "number" },
+                  "image": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Pole created successfully." }
+        }
+      },
+      "patch": {
+        "summary": "Update Pole",
+        "description": "Update pole details like span_length, sag, or photo.",
+        "parameters": [
+          { "in": "query", "name": "pole_id", "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "span_length": { "type": "number" },
+                  "sag": { "type": "integer" },
+                  "image": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Pole updated successfully." }
+        }
+      }
+    },
+    "/poles": {
+      "get": {
+        "summary": "List Pole Numbers by Transformer",
+        "description": "Get a list of pole numbers and IDs for a specific transformer (tc_id).",
+        "parameters": [
+          { "in": "query", "name": "tc_id", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "List of poles." }
+        }
+      }
+    },
+    "/questions": {
+      "get": {
+        "summary": "Get Dynamic Questionnaire Schema",
+        "description": "Retrieve survey questions and options for existing and proposed materials.",
+        "responses": {
+          "200": { "description": "Dynamic survey question schema." }
+        }
+      }
+    },
+    "/material-info/{poleId}": {
+      "post": {
+        "summary": "Submit Material Survey & Photo for Pole",
+        "description": "Fill existing or proposed material specifications for a pole. Accepts image upload.",
+        "parameters": [
+          { "in": "path", "name": "poleId", "required": true, "schema": { "type": "string" } },
+          { "in": "query", "name": "poleType", "schema": { "type": "string", "enum": ["existing", "new_proposed"], "default": "new_proposed" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "type": "object" } },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Pole material info updated." }
+        }
+      }
+    },
+    "/export/pole-schedule/{feeder_id}": {
+      "get": {
+        "summary": "Download Pole Schedule Excel Report",
+        "description": "Generates and downloads the Excel (.xlsx) pole schedule report for a given feeder ID.",
+        "parameters": [
+          { "in": "path", "name": "feeder_id", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Excel spreadsheet file stream.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "email": { "type": "string" },
+          "phone": { "type": "string" },
+          "number": { "type": "string" },
+          "role": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "TransformerInput": {
+        "type": "object",
+        "required": ["tc_number", "feeder_id"],
+        "properties": {
+          "tc_number": { "type": "string", "example": "TC-45789" },
+          "feeder_id": { "type": "string" },
+          "tc_name": { "type": "string" },
+          "name": { "type": "string" },
+          "lat": { "type": "number", "example": 23.0225 },
+          "long": { "type": "number", "example": 72.5714 },
+          "capacity": { "type": "string", "example": "100KVA" },
+          "image": { "type": "string", "description": "Base64 data URL or binary photo string" }
+        }
+      },
+      "PoleInput": {
+        "type": "object",
+        "required": ["tc_id", "pole_number", "lat", "long"],
+        "properties": {
+          "tc_id": { "type": "string" },
+          "pole_number": { "type": "string", "example": "Pole-101" },
+          "is_existing": { "type": "boolean", "default": false },
+          "previous_connector_type": { "type": "string", "enum": ["tc", "pole"] },
+          "previous_connector_id": { "type": "string" },
+          "lat": { "type": "number", "example": 24.0225 },
+          "long": { "type": "number", "example": 72.5714 },
+          "image": { "type": "string", "description": "Base64 data URL or binary photo string" }
+        }
+      }
+    }
+  }
+}

@@ -1,7 +1,8 @@
 from flask import Blueprint,render_template,request,Response,jsonify, send_file
 import json,traceback
 from database.models import *
-from flask_jwt_extended import JWTManager, create_access_token
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
+from datetime import datetime, timedelta
 # import pandas as pd
 from io import BytesIO
 from impl.excel_generator import generate_feeder_pole_excel
@@ -72,17 +73,78 @@ def register():
 @poleSurvey.route('/login', methods=['POST'])
 def login():
     try:
-        data = request.get_json()
-        phone = data.get('number')
+        data = request.get_json(silent=True) or request.form or {}
+        phone = data.get('number') or data.get('phone')
         password = data.get('password')
+
+        if not phone or not password:
+            return jsonify({"error": "Number/phone and password are required"}), 400
 
         user = User.objects(phone=phone).first()
         if not user or not bcrypt.check_password_hash(user.password, password):
             return jsonify({"error": "Invalid credentials"}), 401
 
-        access_token = create_access_token(identity=str(user.id))
-        return jsonify({"token": access_token, "user": user.to_json()}), 200
+        token_version = getattr(user, 'token_version', 1) or 1
 
+        # Long-lived persistent token (1 year)
+        expires_delta = timedelta(days=365)
+        expires_at = (datetime.utcnow() + expires_delta).isoformat() + "Z"
+
+        access_token = create_access_token(
+            identity=str(user.id),
+            additional_claims={"token_version": token_version},
+            expires_delta=expires_delta
+        )
+        return jsonify({
+            "token": access_token,
+            "user": user.to_json(),
+            "expires_at": expires_at
+        }), 200
+
+    except Exception as e:
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+
+@poleSurvey.route('/admin/revoke-user', methods=['POST'])
+def revoke_user_session():
+    try:
+        data = request.get_json(silent=True) or request.form or {}
+        user_id = data.get('user_id') or data.get('id')
+        phone = data.get('phone') or data.get('number')
+
+        user = None
+        if user_id:
+            user = User.objects(id=user_id).first()
+        elif phone:
+            user = User.objects(phone=phone).first()
+
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        current_version = getattr(user, 'token_version', 1) or 1
+        user.token_version = current_version + 1
+        user.save()
+
+        return jsonify({
+            "success": True,
+            "message": "User session revoked successfully."
+        }), 200
+
+    except Exception as e:
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+
+@poleSurvey.route('/verify-token', methods=['GET'])
+@jwt_required()
+def verify_token():
+    try:
+        current_user_id = get_jwt_identity()
+        return jsonify({
+            "valid": True,
+            "user_id": str(current_user_id)
+        }), 200
     except Exception as e:
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
