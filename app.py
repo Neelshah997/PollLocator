@@ -10,7 +10,7 @@ from urllib.parse import quote_plus
 load_dotenv()
 
 password = quote_plus(os.getenv('MONGODB_PASSWORD', 'Test1234'))
-default_host = f"mongodb+srv://qsinnotech:{password}@cluster0.h3cbvc2.mongodb.net/poll_db?retryWrites=true&w=majority&appName=Cluster0"
+default_host = f"mongodb+srv://qsinnotech:{password}@cluster0.h3cbvc2.mongodb.net/test?retryWrites=true&w=majority&appName=Cluster0"
 mongodb_uri = os.getenv('MONGODB_URI', default_host)
 
 app = Flask(__name__)
