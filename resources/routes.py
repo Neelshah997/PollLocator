@@ -8,6 +8,30 @@ from impl.excel_generator import generate_feeder_pole_excel
 
 poleSurvey = Blueprint('poleSurvey',__name__)
 
+import base64
+
+def extract_image_bytes(req):
+    """
+    Extract image binary bytes from request.files (file upload) or request body (Base64 string).
+    """
+    for file_key in ['image', 'photo', 'file']:
+        if file_key in req.files:
+            file_obj = req.files[file_key]
+            if file_obj and file_obj.filename:
+                return file_obj.read()
+
+    data = req.get_json(silent=True) or req.form
+    if data:
+        img_val = data.get('image') or data.get('photo') or data.get('image_base64')
+        if img_val and isinstance(img_val, str):
+            if ',' in img_val:
+                img_val = img_val.split(',', 1)[1]
+            try:
+                return base64.b64decode(img_val)
+            except Exception:
+                return img_val.encode('utf-8')
+    return None
+
 @poleSurvey.route('/healthcheck',methods=['GET'])
 def healthcheck():
     return "pole Survey is running smoothly"
@@ -148,17 +172,40 @@ def create_subdivisions():
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
-@poleSurvey.route('/transformer', methods=['POST','GET'])
+@poleSurvey.route('/transformer', methods=['POST','GET','PATCH'])
 def handle_transformer():
-
-    if request.method == 'POST':
+    if request.method in ['POST', 'PATCH']:
         try:
-            data = request.get_json()
+            data = request.get_json(silent=True) or request.form
+            tc_id = request.args.get('tc_id') or (data.get('tc_id') if data else None)
+
+            image_bytes = extract_image_bytes(request)
+
+            if request.method == 'PATCH' or (request.method == 'POST' and tc_id):
+                tc = Transformer.objects(id=tc_id).first()
+                if not tc:
+                    return jsonify({"error": "Transformer not found"}), 404
+                if data.get('name') or data.get('tc_name'):
+                    tc.name = data.get('name') or data.get('tc_name')
+                if data.get('tc_number'):
+                    tc.tc_number = data.get('tc_number')
+                if data.get('lat') is not None:
+                    tc.lat = float(data.get('lat'))
+                if data.get('long') is not None:
+                    tc.long = float(data.get('long'))
+                if data.get('capacity'):
+                    tc.capacity = data.get('capacity')
+                if image_bytes is not None:
+                    tc.image = image_bytes
+                tc.save()
+                return jsonify({"message": "Transformer updated successfully", "tc": tc.to_json()}), 200
+
             tc_number = data.get('tc_number')
             feeder_id = data.get('feeder_id')
-            tc_name = data.get('tc_name')
+            tc_name = data.get('tc_name') or data.get('name')
             lat = data.get('lat')
             long = data.get('long')
+            capacity = data.get('capacity')
 
             if not tc_number or not feeder_id:
                 return jsonify({"error": "tc_number and feeder_id are required"}), 400
@@ -171,45 +218,34 @@ def handle_transformer():
             if Transformer.objects(tc_number=tc_number, feeder=feeder).first():
                 return jsonify({"error": "TC with this number already exists"}), 400
 
-            transformer = Transformer(tc_number=tc_number,name=tc_name, feeder=feeder, lat=lat, long=long)
+            transformer = Transformer(
+                tc_number=tc_number,
+                name=tc_name,
+                feeder=feeder,
+                lat=float(lat) if lat is not None else None,
+                long=float(long) if long is not None else None,
+                capacity=capacity,
+                image=image_bytes
+            )
             transformer.save()
 
-            return jsonify({"message": "Transformer created", "tc_id": str(transformer.id)}), 201
+            return jsonify({"message": "Transformer created", "tc_id": str(transformer.id), "tc": transformer.to_json()}), 201
         except Exception as e:
             print(traceback.format_exc())
             return jsonify({"error": str(e)}), 500
     if request.method == 'GET':
         try:
             tc_id = request.args.get('tc_id')
-
             if tc_id:
                 tc = Transformer.objects(id=tc_id).first()
                 if not tc:
                     return jsonify({"error": "Transformer not found"}), 404
 
-                return jsonify({
-                    "tc": {
-                        "id": str(tc.id),
-                        "name": tc.name,
-                        "tc_number": tc.tc_number,
-                        "lat": tc.lat,
-                        "long": tc.long,
-                        "capacity": tc.capacity
-                    }
-                }), 200
+                return jsonify({"tc": tc.to_json()}), 200
 
             # Fetch all TCs
             tcs = Transformer.objects()
-            tcs_data = [{
-                "id": str(tc.id),
-                "name": tc.name,
-                "tc_number": tc.tc_number,
-                "lat": tc.lat,
-                "long": tc.long,
-                "capacity": tc.capacity
-            } for tc in tcs]
-
-            return jsonify({"tcs": tcs_data}), 200
+            return jsonify({"tcs": [tc.to_json() for tc in tcs]}), 200
 
         except Exception as e:
             print(traceback.format_exc())
@@ -267,15 +303,21 @@ def haversine(lat1, lon1, lat2, lon2):
 def create_pole():
     if request.method == 'POST':
         try:
-            data = request.get_json()
+            data = request.get_json(silent=True) or request.form
 
             tc_id = data.get("tc_id")
             pole_number = data.get("pole_number")
             is_existing = data.get("is_existing")
+            if isinstance(is_existing, str):
+                is_existing = is_existing.lower() in ['true', '1', 'yes']
             previous_connector_type = data.get("previous_connector_type")  # "tc" or "pole"
             previous_connector_id = data.get("previous_connector_id")
             lat = data.get("lat")
             long = data.get("long")
+            if lat is not None: lat = float(lat)
+            if long is not None: long = float(long)
+
+            image_bytes = extract_image_bytes(request)
 
             if not tc_id or not pole_number or lat is None or long is None:
                 return jsonify({"error": "TC ID, pole Number, lat and long are required"}), 400
@@ -286,7 +328,7 @@ def create_pole():
                 return jsonify({"error": "Transformer (TC) not found"}), 404
 
             # Calculate span_length
-            span_length = None
+            span_length = 0.0
             if previous_connector_type and previous_connector_id:
                 if previous_connector_type == "tc":
                     connector = Transformer.objects(id=previous_connector_id).first()
@@ -301,42 +343,60 @@ def create_pole():
             pole = Pole(
                 tc=tc,
                 pole_number=pole_number,
-                is_existing=is_existing,
-                previous_connector=f"{previous_connector_type}-{previous_connector_id}",
+                is_existing=bool(is_existing),
+                previous_connector=f"{previous_connector_type}-{previous_connector_id}" if previous_connector_type else None,
                 lat=lat,
                 long=long,
-                span_length=round(span_length,2)
+                span_length=round(span_length,2) if span_length else 0.0,
+                image=image_bytes
             )
             pole.save()
 
             return jsonify({
                 "message": "pole created successfully",
                 "pole_id": str(pole.id),
-                "span_length": round(span_length,2)
+                "span_length": round(span_length,2) if span_length else 0.0,
+                "pole": pole.to_json()
             }), 201
 
         except Exception as e:
             print(traceback.format_exc())
             return jsonify({"error": str(e)}), 500
+
     if request.method == 'GET':
         try:
-            poleId = request.args['poleId']
-            pole = Pole.objects(id = poleId).first()
-            return jsonify(pole.to_json()),200
+            poleId = request.args.get('poleId') or request.args.get('pole_id')
+            if not poleId:
+                return jsonify({"error": "poleId is required"}), 400
+            pole = Pole.objects(id=poleId).first()
+            if not pole:
+                return jsonify({"error": "Pole not found"}), 404
+            return jsonify(pole.to_json()), 200
         except Exception as e:
             print(traceback.format_exc())
             return jsonify({"error": str(e)}), 500
+
     if request.method == 'PATCH':
         try:
-            data = request.get_json()
+            data = request.get_json(silent=True) or request.form
             span_length = data.get("span_length")
             sag = data.get("sag")
-            poleId = request.args['pole_id']
-            pole = Pole.objects(id = poleId)[0]
-            pole['span_length'] = span_length
-            pole['sag'] = sag
+            poleId = request.args.get('pole_id') or request.args.get('poleId') or (data.get('pole_id') if data else None)
+            if not poleId:
+                return jsonify({"error": "pole_id is required"}), 400
+            pole = Pole.objects(id=poleId).first()
+            if not pole:
+                return jsonify({"error": "Pole not found"}), 404
+
+            if span_length is not None: pole.span_length = float(span_length)
+            if sag is not None: pole.sag = int(sag)
+
+            image_bytes = extract_image_bytes(request)
+            if image_bytes is not None:
+                pole.image = image_bytes
+
             pole.save()
-            return jsonify({"message": "Pole updated successfully"}), 200
+            return jsonify({"message": "Pole updated successfully", "pole": pole.to_json()}), 200
         except Exception as e:
             print(traceback.format_exc())
             return jsonify({"error": str(e)}), 500
@@ -442,24 +502,33 @@ def getQuestions():
 def fillMaterial(poleId):
     try:
         pole = Pole.objects(id = poleId).first()
+        if not pole:
+            return jsonify({"error": "Pole not found"}), 404
         requestPoleType = request.args.get("poleType", "new_proposed")  # Default to 'new_proposed' if not provided
-        existingvalues = request.json
+        existingvalues = request.get_json(silent=True) or request.form or {}
+
+        image_bytes = extract_image_bytes(request)
+        if image_bytes is not None:
+            pole.image = image_bytes
+
         if pole.is_existing == False:
             pole.proposed_materials['8mtr PSC'] = 1
             pole.proposed_materials['Danger Board'] = 1
             pole.proposed_materials['Barbed Wire'] = 1
             pole.proposed_materials['Stay set'] = 1
         for key, value in existingvalues.items():
+            if key in ['image', 'photo', 'image_base64']:
+                continue
             if requestPoleType == 'existing':
                 pole.existing_info[key] = value
             elif requestPoleType == 'new_proposed':
                 pole.proposed_materials[key] = value
-        if existingvalues['Type of Arrangement'] == "3Ph":
+        if existingvalues.get('Type of Arrangement') == "3Ph":
             if pole.is_existing == True and requestPoleType=='existing':
                 pole.existing_info['Span Three Phase'] = pole.span_length
             elif requestPoleType=='new_proposed':
                 pole.proposed_materials['3Core Wire'] = pole.span_length
-        elif existingvalues['Type of Arrangement'] == "1Ph":
+        elif existingvalues.get('Type of Arrangement') == "1Ph":
             if pole.is_existing == True and requestPoleType=='existing':
                 pole.existing_info['Span Single Phase'] = pole.span_length
             elif requestPoleType=='new_proposed':

@@ -1,7 +1,18 @@
 # models.py
 
-from mongoengine import Document, StringField, ReferenceField, DateTimeField,FloatField,BooleanField,DictField,IntField
+from mongoengine import Document, StringField, ReferenceField, DateTimeField,FloatField,BooleanField,DictField,IntField, BinaryField
 from datetime import datetime
+import base64
+
+def image_to_base64(binary_data):
+    if not binary_data:
+        return None
+    if isinstance(binary_data, bytes):
+        b64 = base64.b64encode(binary_data).decode('utf-8')
+        return f"data:image/jpeg;base64,{b64}"
+    if isinstance(binary_data, str):
+        return binary_data
+    return None
 
 class Role(Document):
     name = StringField(required=True, unique=True)  # e.g., 'user', 'admin', 'agent'
@@ -76,13 +87,18 @@ class Transformer(Document):
     name = StringField()
     created_at = DateTimeField(default=datetime.utcnow)
     capacity = StringField()
+    image = BinaryField()
+
     def to_json(self):
         return {
             "id": str(self.id),
             "tc_number": self.tc_number,
-            "feeder": str(self.feeder.id),
+            "name": self.name,
+            "feeder": str(self.feeder.id) if self.feeder else None,
             "lat": self.lat,
-            "long":self.long,
+            "long": self.long,
+            "capacity": self.capacity,
+            "image": image_to_base64(self.image)
         }
 
 class Pole(Document):
@@ -94,6 +110,7 @@ class Pole(Document):
     long = FloatField()
     span_length = FloatField()  # in meters
     created_at = DateTimeField(default=datetime.utcnow)
+    image = BinaryField()
     existing_info = DictField(default = lambda:{"Type of Arrangement": "",
     "Type of Conductor": "",
     "Span Three Phase": "",
@@ -136,14 +153,15 @@ class Pole(Document):
         return {
             "id": str(self.id),
             "pole_number": self.pole_number,
-            "tc_id": str(self.tc.id),
+            "tc_id": str(self.tc.id) if self.tc else None,
             "existing": self.is_existing,
             "lat": self.lat,
             "long": self.long,
             "span_length": self.span_length,
             "existing_info": self.existing_info,
             "proposed_materials": self.proposed_materials,
-            "created_at": self.created_at.isoformat(),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "image": image_to_base64(self.image)
         }
 # TC Number
 # Exisiting/Non Existing

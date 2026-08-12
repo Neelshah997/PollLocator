@@ -1,5 +1,4 @@
 from flask import Flask,request
-from resources.routes import poleSurvey
 from database.db import initializeDB
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager
@@ -15,7 +14,6 @@ mongodb_uri = os.getenv('MONGODB_URI', default_host)
 
 app = Flask(__name__)
 
-app.register_blueprint(poleSurvey)
 app.config['MONGODB_SETTINGS'] = {
         'host': mongodb_uri
 }
@@ -25,6 +23,9 @@ app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'default_secret_key')
 initializeDB(app)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
+
+from resources.routes import poleSurvey
+app.register_blueprint(poleSurvey)
 
 if __name__=="__main__":
     app.run(host='0.0.0.0',port=8095,debug=True)
