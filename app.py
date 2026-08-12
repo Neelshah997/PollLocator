@@ -7,14 +7,17 @@ from dotenv import load_dotenv
 import os
 from urllib.parse import quote_plus
 
-password = quote_plus(os.environ.get('MONGODB_PASSWORD', 'Test1234'))
-
 load_dotenv()
+
+password = quote_plus(os.getenv('MONGODB_PASSWORD', 'Test1234'))
+default_host = f"mongodb+srv://qsinnotech:{password}@cluster0.h3cbvc2.mongodb.net/poll_db?retryWrites=true&w=majority&appName=Cluster0"
+mongodb_uri = os.getenv('MONGODB_URI', default_host)
+
 app = Flask(__name__)
 
 app.register_blueprint(poleSurvey)
 app.config['MONGODB_SETTINGS'] = {
-        'host':f"mongodb://qsinnotech:{password}@ac-ghjzltd-shard-00-00.foj9csc.mongodb.net:27017,ac-ghjzltd-shard-00-01.foj9csc.mongodb.net:27017,ac-ghjzltd-shard-00-02.foj9csc.mongodb.net:27017/poleSurvey?ssl=true&replicaSet=atlas-12dihf-shard-0&authSource=admin&retryWrites=true&w=majority&appName=Cluster0"
+        'host': mongodb_uri
 }
 
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'default_secret_key')  # default if not set

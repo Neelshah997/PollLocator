@@ -1,3 +1,4 @@
 pollSurvey/
 __pycache__/
 .env
+RDSS FeederData.json
