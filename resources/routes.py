@@ -312,31 +312,37 @@ def create_subdivisions():
 
 @poleSurvey.route('/transformer', methods=['POST','GET','PATCH'])
 def handle_transformer():
-    if request.method in ['POST', 'PATCH']:
+    if request.method == 'PATCH':
         try:
-            data = request.get_json(silent=True) or request.form
-            tc_id = request.args.get('tc_id') or request.args.get('tc_number') or (data.get('tc_id') if data else None) or (data.get('tc_number') if data else None)
+            data = request.get_json(silent=True) or request.form or {}
+            tc_id = request.args.get('tc_id') or request.args.get('tc_number') or data.get('tc_id') or data.get('tc_number')
+            tc = find_transformer(tc_id)
+            if not tc:
+                return jsonify({"error": "Transformer not found"}), 404
 
             image_bytes = extract_image_bytes(request)
+            if data.get('name') or data.get('tc_name'):
+                tc.name = data.get('name') or data.get('tc_name')
+            if data.get('tc_number'):
+                tc.tc_number = data.get('tc_number')
+            if data.get('lat') is not None:
+                tc.lat = float(data.get('lat'))
+            if data.get('long') is not None:
+                tc.long = float(data.get('long'))
+            if data.get('capacity'):
+                tc.capacity = data.get('capacity')
+            if image_bytes is not None:
+                tc.image = image_bytes
+            tc.save()
+            return jsonify({"message": "Transformer updated successfully", "tc": tc.to_json()}), 200
+        except Exception as e:
+            print(traceback.format_exc())
+            return jsonify({"error": str(e)}), 500
 
-            if request.method == 'PATCH' or (request.method == 'POST' and tc_id):
-                tc = find_transformer(tc_id)
-                if not tc:
-                    return jsonify({"error": "Transformer not found"}), 404
-                if data.get('name') or data.get('tc_name'):
-                    tc.name = data.get('name') or data.get('tc_name')
-                if data.get('tc_number'):
-                    tc.tc_number = data.get('tc_number')
-                if data.get('lat') is not None:
-                    tc.lat = float(data.get('lat'))
-                if data.get('long') is not None:
-                    tc.long = float(data.get('long'))
-                if data.get('capacity'):
-                    tc.capacity = data.get('capacity')
-                if image_bytes is not None:
-                    tc.image = image_bytes
-                tc.save()
-                return jsonify({"message": "Transformer updated successfully", "tc": tc.to_json()}), 200
+    if request.method == 'POST':
+        try:
+            data = request.get_json(silent=True) or request.form or {}
+            image_bytes = extract_image_bytes(request)
 
             tc_number = data.get('tc_number')
             feeder_id = data.get('feeder_id')
@@ -345,20 +351,33 @@ def handle_transformer():
             long = data.get('long')
             capacity = data.get('capacity')
 
-            if not tc_number or not feeder_id:
-                return jsonify({"error": "tc_number and feeder_id are required"}), 400
+            if not tc_number:
+                return jsonify({"error": "tc_number is required"}), 400
+
+            # UPSERT Check: Check if transformer with tc_number already exists
+            existing_tc = find_transformer(tc_number)
+            if existing_tc:
+                if tc_name: existing_tc.name = tc_name
+                if lat is not None: existing_tc.lat = float(lat)
+                if long is not None: existing_tc.long = float(long)
+                if capacity: existing_tc.capacity = capacity
+                if feeder_id:
+                    feeder = find_feeder(feeder_id)
+                    if feeder: existing_tc.feeder = feeder
+                if image_bytes is not None: existing_tc.image = image_bytes
+                existing_tc.save()
+                return jsonify({"message": "Transformer updated/retrieved successfully", "tc_id": str(existing_tc.id), "tc": existing_tc.to_json()}), 200
+
+            if not feeder_id:
+                return jsonify({"error": "feeder_id is required"}), 400
 
             feeder = find_feeder(feeder_id)
             if not feeder:
                 return jsonify({"error": "Feeder not found"}), 404
 
-            # Check for duplicate
-            if Transformer.objects(tc_number=tc_number, feeder=feeder).first():
-                return jsonify({"error": "TC with this number already exists"}), 400
-
             transformer = Transformer(
                 tc_number=tc_number,
-                name=tc_name,
+                name=tc_name or tc_number,
                 feeder=feeder,
                 lat=float(lat) if lat is not None else None,
                 long=float(long) if long is not None else None,
@@ -371,6 +390,7 @@ def handle_transformer():
         except Exception as e:
             print(traceback.format_exc())
             return jsonify({"error": str(e)}), 500
+
     if request.method == 'GET':
         try:
             tc_id = request.args.get('tc_id') or request.args.get('tc_number')
@@ -378,13 +398,10 @@ def handle_transformer():
                 tc = find_transformer(tc_id)
                 if not tc:
                     return jsonify({"error": "Transformer not found"}), 404
-
                 return jsonify({"tc": tc.to_json()}), 200
 
-            # Fetch all TCs
             tcs = Transformer.objects()
             return jsonify({"tcs": [tc.to_json() for tc in tcs]}), 200
-
         except Exception as e:
             print(traceback.format_exc())
             return jsonify({"error": str(e)}), 500
