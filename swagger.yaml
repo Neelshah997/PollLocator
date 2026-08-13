@@ -5,7 +5,8 @@ info:
     API specification for Pole Locator & Transformer Survey Application.
     Supports user authentication, persistent sessions, token revocation,
     division/subdivision/feeder hierarchy, transformer & pole management with image blobs,
-    offline TC number / Pole number primary key resolution, survey questionnaires, and Excel schedule exports.
+    offline TC number / Pole number primary key resolution, Idempotency & Upsert handling,
+    survey questionnaires, and Excel schedule exports.
   version: 1.0.0
 servers:
   - url: http://localhost:8095
@@ -375,10 +376,12 @@ paths:
           description: Pole ID or Pole Number (e.g. Pole-101)
       responses:
         '200':
-          description: Pole details with image Data URL and tc_number.
+          description: Pole details with image Data URL, tc_number, and client_tx_id.
     post:
-      summary: Create Pole
-      description: Create a new pole with automatic span length calculation and photo upload. Accepts tc_id, tc_number, or tc.
+      summary: Create or Upsert Pole (Idempotent)
+      description: >
+        Create a new pole or update an existing pole matching (tc_id, pole_number) or client_tx_id.
+        Returns 201 Created for new poles and 200 OK with existing pole_id for resubmissions.
       requestBody:
         content:
           application/json:
@@ -405,10 +408,15 @@ paths:
                   type: number
                 long:
                   type: number
+                client_tx_id:
+                  type: string
+                  example: "local_pole_1786603728951"
                 image:
                   type: string
                   format: binary
       responses:
+        '200':
+          description: Existing pole updated/retrieved successfully (Upsert).
         '201':
           description: Pole created successfully.
     patch:
@@ -461,8 +469,10 @@ paths:
 
   /material-info/{poleId}:
     post:
-      summary: Submit Material Survey & Photo for Pole
-      description: Fill existing or proposed material specifications for a pole (identified by poleId or pole_number). Accepts image upload.
+      summary: Submit Material Survey & Photo for Pole (Upsert)
+      description: >
+        Upsert existing or proposed material key-value answers for a pole (identified by poleId or pole_number).
+        Updates answers if material record already exists for this pole instead of creating duplicate records.
       parameters:
         - in: path
           name: poleId
@@ -481,16 +491,37 @@ paths:
           application/json:
             schema:
               type: object
+              properties:
+                client_tx_id:
+                  type: string
+                  example: "mat_tx_2001"
           multipart/form-data:
             schema:
               type: object
               properties:
+                client_tx_id:
+                  type: string
                 image:
                   type: string
                   format: binary
       responses:
         '200':
-          description: Pole material info updated.
+          description: Material information saved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Material information saved successfully
+                  pole_id:
+                    type: string
+                  pole:
+                    $ref: '#/components/schemas/PoleOutput'
 
   /export/pole-schedule/{feeder_id}:
     get:
@@ -596,6 +627,42 @@ components:
         long:
           type: number
           example: 72.5714
+        client_tx_id:
+          type: string
+          example: "local_pole_1786603728951"
         image:
           type: string
           description: Base64 data URL or binary photo string
+
+    PoleOutput:
+      type: object
+      properties:
+        id:
+          type: string
+        pole_number:
+          type: string
+        tc_id:
+          type: string
+        tc_number:
+          type: string
+        existing:
+          type: boolean
+        lat:
+          type: number
+        long:
+          type: number
+        span_length:
+          type: number
+        sag:
+          type: integer
+        client_tx_id:
+          type: string
+        existing_info:
+          type: object
+        proposed_materials:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        image:
+          type: string

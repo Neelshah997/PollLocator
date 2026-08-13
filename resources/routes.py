@@ -443,6 +443,22 @@ def create_pole():
         try:
             data = request.get_json(silent=True) or request.form
 
+            client_tx_id = data.get("client_tx_id")
+            if client_tx_id:
+                existing_tx_pole = Pole.objects(client_tx_id=client_tx_id).first()
+                if existing_tx_pole:
+                    return jsonify({
+                        "message": "Existing pole updated/retrieved successfully",
+                        "pole_id": str(existing_tx_pole.id),
+                        "tc_id": str(existing_tx_pole.tc.id) if existing_tx_pole.tc else None,
+                        "tc_number": existing_tx_pole.tc.tc_number if existing_tx_pole.tc else None,
+                        "pole_number": existing_tx_pole.pole_number,
+                        "is_existing": existing_tx_pole.is_existing,
+                        "span_length": existing_tx_pole.span_length,
+                        "sag": existing_tx_pole.sag,
+                        "pole": existing_tx_pole.to_json()
+                    }), 200
+
             tc_id = data.get("tc_id") or data.get("tc_number") or data.get("tc")
             pole_number = data.get("pole_number")
             is_existing = data.get("is_existing")
@@ -478,6 +494,34 @@ def create_pole():
                 if connector and connector.lat is not None and connector.long is not None:
                     span_length = haversine(connector.lat, connector.long, lat, long)
 
+            # UPSERT Check: Check if pole with (tc, pole_number) already exists
+            existing_pole = Pole.objects(tc=tc, pole_number=pole_number).first()
+            if existing_pole:
+                existing_pole.is_existing = bool(is_existing)
+                existing_pole.lat = lat
+                existing_pole.long = long
+                if span_length:
+                    existing_pole.span_length = round(span_length, 2)
+                if previous_connector_type:
+                    existing_pole.previous_connector = f"{previous_connector_type}-{previous_connector_id}"
+                if image_bytes is not None:
+                    existing_pole.image = image_bytes
+                if client_tx_id:
+                    existing_pole.client_tx_id = client_tx_id
+                existing_pole.save()
+
+                return jsonify({
+                    "message": "Existing pole updated/retrieved successfully",
+                    "pole_id": str(existing_pole.id),
+                    "tc_id": str(tc.id),
+                    "tc_number": tc.tc_number,
+                    "pole_number": existing_pole.pole_number,
+                    "is_existing": existing_pole.is_existing,
+                    "span_length": existing_pole.span_length,
+                    "sag": existing_pole.sag,
+                    "pole": existing_pole.to_json()
+                }), 200
+
             pole = Pole(
                 tc=tc,
                 pole_number=pole_number,
@@ -486,14 +530,20 @@ def create_pole():
                 lat=lat,
                 long=long,
                 span_length=round(span_length,2) if span_length else 0.0,
-                image=image_bytes
+                image=image_bytes,
+                client_tx_id=client_tx_id
             )
             pole.save()
 
             return jsonify({
-                "message": "pole created successfully",
+                "message": "Pole created successfully",
                 "pole_id": str(pole.id),
+                "tc_id": str(tc.id),
+                "tc_number": tc.tc_number,
+                "pole_number": pole.pole_number,
+                "is_existing": pole.is_existing,
                 "span_length": round(span_length,2) if span_length else 0.0,
+                "sag": pole.sag,
                 "pole": pole.to_json()
             }), 201
 
@@ -639,11 +689,18 @@ def getQuestions():
 @poleSurvey.route('/material-info/<poleId>', methods=['POST'])
 def fillMaterial(poleId):
     try:
-        pole = find_pole(poleId)
+        data = request.get_json(silent=True) or request.form or {}
+        actual_pole_id = poleId or request.args.get("pole_id") or data.get("pole_id") or data.get("pole_number")
+        pole = find_pole(actual_pole_id)
         if not pole:
             return jsonify({"error": "Pole not found"}), 404
-        requestPoleType = request.args.get("poleType", "new_proposed")  # Default to 'new_proposed' if not provided
-        existingvalues = request.get_json(silent=True) or request.form or {}
+
+        requestPoleType = request.args.get("poleType") or data.get("poleType") or "new_proposed"
+        existingvalues = data
+
+        client_tx_id = data.get("client_tx_id")
+        if client_tx_id:
+            pole.client_tx_id = client_tx_id
 
         image_bytes = extract_image_bytes(request)
         if image_bytes is not None:
@@ -654,13 +711,15 @@ def fillMaterial(poleId):
             pole.proposed_materials['Danger Board'] = 1
             pole.proposed_materials['Barbed Wire'] = 1
             pole.proposed_materials['Stay set'] = 1
+
         for key, value in existingvalues.items():
-            if key in ['image', 'photo', 'image_base64']:
+            if key in ['image', 'photo', 'image_base64', 'client_tx_id', 'pole_id', 'poleId', 'poleType']:
                 continue
             if requestPoleType == 'existing':
                 pole.existing_info[key] = value
             elif requestPoleType == 'new_proposed':
                 pole.proposed_materials[key] = value
+
         if existingvalues.get('Type of Arrangement') == "3Ph":
             if pole.is_existing == True and requestPoleType=='existing':
                 pole.existing_info['Span Three Phase'] = pole.span_length
@@ -671,8 +730,15 @@ def fillMaterial(poleId):
                 pole.existing_info['Span Single Phase'] = pole.span_length
             elif requestPoleType=='new_proposed':
                 pole.proposed_materials['1Core Wire'] = pole.span_length
+
         pole.save()
-        return jsonify(pole.to_json()), 200
+
+        return jsonify({
+            "success": True,
+            "message": "Material information saved successfully",
+            "pole_id": str(pole.id),
+            "pole": pole.to_json()
+        }), 200
     except Exception as e:
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500

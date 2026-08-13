@@ -151,6 +151,7 @@ class Pole(Document):
     "1Core Wire":""
     })  # Store 21-40 keys
     sag = IntField()
+    client_tx_id = StringField()
     def to_json(self):
         return {
             "id": str(self.id),
@@ -161,6 +162,8 @@ class Pole(Document):
             "lat": self.lat,
             "long": self.long,
             "span_length": self.span_length,
+            "sag": self.sag,
+            "client_tx_id": self.client_tx_id,
             "existing_info": self.existing_info,
             "proposed_materials": self.proposed_materials,
             "created_at": self.created_at.isoformat() if self.created_at else None,
