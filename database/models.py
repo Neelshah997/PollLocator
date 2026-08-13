@@ -156,6 +156,7 @@ class Pole(Document):
             "id": str(self.id),
             "pole_number": self.pole_number,
             "tc_id": str(self.tc.id) if self.tc else None,
+            "tc_number": self.tc.tc_number if self.tc else None,
             "existing": self.is_existing,
             "lat": self.lat,
             "long": self.long,

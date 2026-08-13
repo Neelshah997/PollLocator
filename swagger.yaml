@@ -5,7 +5,7 @@ info:
     API specification for Pole Locator & Transformer Survey Application.
     Supports user authentication, persistent sessions, token revocation,
     division/subdivision/feeder hierarchy, transformer & pole management with image blobs,
-    survey questionnaires, and Excel schedule exports.
+    offline TC number / Pole number primary key resolution, survey questionnaires, and Excel schedule exports.
   version: 1.0.0
 servers:
   - url: http://localhost:8095
@@ -187,23 +187,23 @@ paths:
   /recommendations:
     get:
       summary: Get Hierarchy Recommendations
-      description: Retrieve cascading divisions, subdivisions, feeders, and transformers based on query parameters.
+      description: Retrieve cascading divisions, subdivisions, feeders, and transformers based on query parameters. Supports ID or Name.
       parameters:
         - in: query
           name: division_id
           schema:
             type: string
-          description: Filter subdivisions by division ID
+          description: Filter subdivisions by division ID or Name
         - in: query
           name: subdivision_id
           schema:
             type: string
-          description: Filter feeders by subdivision ID
+          description: Filter feeders by subdivision ID or Name
         - in: query
           name: feeder_id
           schema:
             type: string
-          description: Filter transformers by feeder ID
+          description: Filter transformers by feeder ID or Name
       responses:
         '200':
           description: Recommendations data.
@@ -282,13 +282,18 @@ paths:
   /transformer:
     get:
       summary: Get Transformer Details / List
-      description: Retrieve a specific transformer by tc_id or list all transformers.
+      description: Retrieve a specific transformer by tc_id or tc_number, or list all transformers.
       parameters:
         - in: query
           name: tc_id
           schema:
             type: string
-          description: Optional Transformer ID to fetch specific TC.
+          description: Transformer ID or TC Number (e.g. 8231456)
+        - in: query
+          name: tc_number
+          schema:
+            type: string
+          description: Alternative parameter for TC Number
       responses:
         '200':
           description: Transformer details or list of transformers.
@@ -324,12 +329,13 @@ paths:
           description: Transformer created.
     patch:
       summary: Update Transformer (TC)
-      description: Update details or photo of an existing transformer.
+      description: Update details or photo of an existing transformer by ID or TC Number.
       parameters:
         - in: query
           name: tc_id
           schema:
             type: string
+          description: Transformer ID or TC Number (e.g. 8231456)
       requestBody:
         content:
           application/json:
@@ -359,20 +365,20 @@ paths:
   /pole:
     get:
       summary: Get Pole Details
-      description: Retrieve a specific pole document by poleId.
+      description: Retrieve a specific pole document by poleId or pole_number.
       parameters:
         - in: query
           name: poleId
           required: true
           schema:
             type: string
-          description: ID of the Pole document.
+          description: Pole ID or Pole Number (e.g. Pole-101)
       responses:
         '200':
-          description: Pole details with image Data URL.
+          description: Pole details with image Data URL and tc_number.
     post:
       summary: Create Pole
-      description: Create a new pole with automatic span length calculation and photo upload.
+      description: Create a new pole with automatic span length calculation and photo upload. Accepts tc_id, tc_number, or tc.
       requestBody:
         content:
           application/json:
@@ -384,6 +390,7 @@ paths:
               properties:
                 tc_id:
                   type: string
+                  description: Transformer ID or TC Number (e.g. 8231456)
                 pole_number:
                   type: string
                 is_existing:
@@ -393,6 +400,7 @@ paths:
                   enum: [tc, pole]
                 previous_connector_id:
                   type: string
+                  description: Transformer ID/Number or Pole ID/Number
                 lat:
                   type: number
                 long:
@@ -405,12 +413,13 @@ paths:
           description: Pole created successfully.
     patch:
       summary: Update Pole
-      description: Update pole details like span_length, sag, or photo.
+      description: Update pole details like span_length, sag, or photo using pole_id or pole_number.
       parameters:
         - in: query
           name: pole_id
           schema:
             type: string
+          description: Pole ID or Pole Number
       requestBody:
         content:
           application/json:
@@ -430,13 +439,14 @@ paths:
   /poles:
     get:
       summary: List Pole Numbers by Transformer
-      description: Get a list of pole numbers and IDs for a specific transformer (tc_id).
+      description: Get a list of pole numbers and IDs for a specific transformer using tc_id or tc_number (e.g. 8231456).
       parameters:
         - in: query
           name: tc_id
           required: true
           schema:
             type: string
+          description: Transformer ID or TC Number (e.g. 8231456)
       responses:
         '200':
           description: List of poles.
@@ -452,13 +462,14 @@ paths:
   /material-info/{poleId}:
     post:
       summary: Submit Material Survey & Photo for Pole
-      description: Fill existing or proposed material specifications for a pole. Accepts image upload.
+      description: Fill existing or proposed material specifications for a pole (identified by poleId or pole_number). Accepts image upload.
       parameters:
         - in: path
           name: poleId
           required: true
           schema:
             type: string
+          description: Pole ID or Pole Number
         - in: query
           name: poleType
           schema:
@@ -484,13 +495,14 @@ paths:
   /export/pole-schedule/{feeder_id}:
     get:
       summary: Download Pole Schedule Excel Report
-      description: Generates and downloads the Excel (.xlsx) pole schedule report for a given feeder ID.
+      description: Generates and downloads the Excel (.xlsx) pole schedule report for a given feeder ID or Name.
       parameters:
         - in: path
           name: feeder_id
           required: true
           schema:
             type: string
+          description: Feeder ID or Feeder Name
       responses:
         '200':
           description: Excel spreadsheet file stream.
@@ -535,7 +547,7 @@ components:
       properties:
         tc_number:
           type: string
-          example: TC-45789
+          example: "8231456"
         feeder_id:
           type: string
         tc_name:
@@ -565,6 +577,7 @@ components:
       properties:
         tc_id:
           type: string
+          description: Transformer ID or TC Number (e.g. 8231456)
         pole_number:
           type: string
           example: Pole-101
@@ -576,6 +589,7 @@ components:
           enum: [tc, pole]
         previous_connector_id:
           type: string
+          description: Transformer ID/Number or Pole ID/Number
         lat:
           type: number
           example: 24.0225

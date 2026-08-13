@@ -33,6 +33,86 @@ def extract_image_bytes(req):
                 return img_val.encode('utf-8')
     return None
 
+def is_valid_object_id(val):
+    if not val:
+        return False
+    val_str = str(val).strip()
+    return len(val_str) == 24 and all(c in '0123456789abcdefABCDEF' for c in val_str)
+
+def find_user(identifier):
+    if not identifier:
+        return None
+    ident_str = str(identifier).strip()
+    if is_valid_object_id(ident_str):
+        try:
+            u = User.objects(id=ident_str).first()
+            if u: return u
+        except Exception:
+            pass
+    return User.objects(phone=ident_str).first()
+
+def find_division(identifier):
+    if not identifier:
+        return None
+    ident_str = str(identifier).strip()
+    if is_valid_object_id(ident_str):
+        try:
+            d = Division.objects(id=ident_str).first()
+            if d: return d
+        except Exception:
+            pass
+    return Division.objects(name=ident_str).first()
+
+def find_subdivision(identifier):
+    if not identifier:
+        return None
+    ident_str = str(identifier).strip()
+    if is_valid_object_id(ident_str):
+        try:
+            s = Subdivision.objects(id=ident_str).first()
+            if s: return s
+        except Exception:
+            pass
+    return Subdivision.objects(name=ident_str).first()
+
+def find_feeder(identifier):
+    if not identifier:
+        return None
+    ident_str = str(identifier).strip()
+    if is_valid_object_id(ident_str):
+        try:
+            f = Feeder.objects(id=ident_str).first()
+            if f: return f
+        except Exception:
+            pass
+    return Feeder.objects(name=ident_str).first()
+
+def find_transformer(identifier):
+    if not identifier:
+        return None
+    ident_str = str(identifier).strip()
+    if is_valid_object_id(ident_str):
+        try:
+            t = Transformer.objects(id=ident_str).first()
+            if t: return t
+        except Exception:
+            pass
+    t = Transformer.objects(tc_number=ident_str).first()
+    if t: return t
+    return Transformer.objects(name=ident_str).first()
+
+def find_pole(identifier):
+    if not identifier:
+        return None
+    ident_str = str(identifier).strip()
+    if is_valid_object_id(ident_str):
+        try:
+            p = Pole.objects(id=ident_str).first()
+            if p: return p
+        except Exception:
+            pass
+    return Pole.objects(pole_number=ident_str).first()
+
 @poleSurvey.route('/healthcheck',methods=['GET'])
 def healthcheck():
     return "pole Survey is running smoothly"
@@ -113,11 +193,7 @@ def revoke_user_session():
         user_id = data.get('user_id') or data.get('id')
         phone = data.get('phone') or data.get('number')
 
-        user = None
-        if user_id:
-            user = User.objects(id=user_id).first()
-        elif phone:
-            user = User.objects(phone=phone).first()
+        user = find_user(user_id) or find_user(phone)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -160,20 +236,20 @@ def get_recommendations():
 
         division_id = request.args.get('division_id')
         if division_id:
-            division = Division.objects(id=division_id).first()
+            division = find_division(division_id)
             if division:
                 subdivisions = Subdivision.objects(division=division)
                 recommendations['subdivisions'] = [subdiv.to_json() for subdiv in subdivisions]
 
         subdivision_id = request.args.get('subdivision_id')
         if subdivision_id:
-            subdivision = Subdivision.objects(id=subdivision_id).first()
+            subdivision = find_subdivision(subdivision_id)
             if subdivision:
                 feeders = Feeder.objects(subdivision=subdivision)
                 recommendations['feeders'] = [feeder.to_json() for feeder in feeders]
         feeder_id = request.args.get('feeder_id')
         if feeder_id:
-            feeder = Feeder.objects(id=feeder_id).first()
+            feeder = find_feeder(feeder_id)
             if not feeder:
                 return jsonify({"error": "Feeder not found"}), 404
 
@@ -214,7 +290,7 @@ def create_subdivisions():
         if not names or not isinstance(names, list) or not division_id:
             return jsonify({"error": "List of names and division_id are required"}), 400
 
-        division = Division.objects(id=division_id).first()
+        division = find_division(division_id)
         if not division:
             return jsonify({"error": "Division not found"}), 404
 
@@ -239,12 +315,12 @@ def handle_transformer():
     if request.method in ['POST', 'PATCH']:
         try:
             data = request.get_json(silent=True) or request.form
-            tc_id = request.args.get('tc_id') or (data.get('tc_id') if data else None)
+            tc_id = request.args.get('tc_id') or request.args.get('tc_number') or (data.get('tc_id') if data else None) or (data.get('tc_number') if data else None)
 
             image_bytes = extract_image_bytes(request)
 
             if request.method == 'PATCH' or (request.method == 'POST' and tc_id):
-                tc = Transformer.objects(id=tc_id).first()
+                tc = find_transformer(tc_id)
                 if not tc:
                     return jsonify({"error": "Transformer not found"}), 404
                 if data.get('name') or data.get('tc_name'):
@@ -272,7 +348,7 @@ def handle_transformer():
             if not tc_number or not feeder_id:
                 return jsonify({"error": "tc_number and feeder_id are required"}), 400
 
-            feeder = Feeder.objects(id=feeder_id).first()
+            feeder = find_feeder(feeder_id)
             if not feeder:
                 return jsonify({"error": "Feeder not found"}), 404
 
@@ -297,9 +373,9 @@ def handle_transformer():
             return jsonify({"error": str(e)}), 500
     if request.method == 'GET':
         try:
-            tc_id = request.args.get('tc_id')
+            tc_id = request.args.get('tc_id') or request.args.get('tc_number')
             if tc_id:
-                tc = Transformer.objects(id=tc_id).first()
+                tc = find_transformer(tc_id)
                 if not tc:
                     return jsonify({"error": "Transformer not found"}), 404
 
@@ -322,7 +398,7 @@ def create_feeders():
         if not names or not subdivision_id or not isinstance(names, list):
             return jsonify({"error": "List of names and subdivision_id are required"}), 400
 
-        subdivision = Subdivision.objects(id=subdivision_id).first()
+        subdivision = find_subdivision(subdivision_id)
         if not subdivision:
             return jsonify({"error": "Subdivision not found"}), 404
 
@@ -367,7 +443,7 @@ def create_pole():
         try:
             data = request.get_json(silent=True) or request.form
 
-            tc_id = data.get("tc_id")
+            tc_id = data.get("tc_id") or data.get("tc_number") or data.get("tc")
             pole_number = data.get("pole_number")
             is_existing = data.get("is_existing")
             if isinstance(is_existing, str):
@@ -382,10 +458,10 @@ def create_pole():
             image_bytes = extract_image_bytes(request)
 
             if not tc_id or not pole_number or lat is None or long is None:
-                return jsonify({"error": "TC ID, pole Number, lat and long are required"}), 400
+                return jsonify({"error": "TC ID/Number, pole Number, lat and long are required"}), 400
 
-            # Lookup the Transformer
-            tc = Transformer.objects(id=tc_id).first()
+            # Lookup the Transformer by ID or TC Number
+            tc = find_transformer(tc_id)
             if not tc:
                 return jsonify({"error": "Transformer (TC) not found"}), 404
 
@@ -393,9 +469,9 @@ def create_pole():
             span_length = 0.0
             if previous_connector_type and previous_connector_id:
                 if previous_connector_type == "tc":
-                    connector = Transformer.objects(id=previous_connector_id).first()
+                    connector = find_transformer(previous_connector_id)
                 elif previous_connector_type == "pole":
-                    connector = Pole.objects(id=previous_connector_id).first()
+                    connector = find_pole(previous_connector_id)
                 else:
                     return jsonify({"error": "Invalid previous_connector_type"}), 400
                 
@@ -427,10 +503,10 @@ def create_pole():
 
     if request.method == 'GET':
         try:
-            poleId = request.args.get('poleId') or request.args.get('pole_id')
+            poleId = request.args.get('poleId') or request.args.get('pole_id') or request.args.get('pole_number')
             if not poleId:
-                return jsonify({"error": "poleId is required"}), 400
-            pole = Pole.objects(id=poleId).first()
+                return jsonify({"error": "poleId/pole_number is required"}), 400
+            pole = find_pole(poleId)
             if not pole:
                 return jsonify({"error": "Pole not found"}), 404
             return jsonify(pole.to_json()), 200
@@ -443,10 +519,10 @@ def create_pole():
             data = request.get_json(silent=True) or request.form
             span_length = data.get("span_length")
             sag = data.get("sag")
-            poleId = request.args.get('pole_id') or request.args.get('poleId') or (data.get('pole_id') if data else None)
+            poleId = request.args.get('pole_id') or request.args.get('poleId') or (data.get('pole_id') if data else None) or (data.get('pole_number') if data else None)
             if not poleId:
                 return jsonify({"error": "pole_id is required"}), 400
-            pole = Pole.objects(id=poleId).first()
+            pole = find_pole(poleId)
             if not pole:
                 return jsonify({"error": "Pole not found"}), 404
 
@@ -466,11 +542,11 @@ def create_pole():
 def get_pole_numbers_by_tc():
     if request.method == 'GET':
         try:
-            tc_id = request.args.get('tc_id')
+            tc_id = request.args.get('tc_id') or request.args.get('tc_number') or request.args.get('tc')
             if not tc_id:
-                return jsonify({"error": "tc_id is required"}), 400
+                return jsonify({"error": "tc_id or tc_number is required"}), 400
 
-            tc = Transformer.objects(id=tc_id).first()
+            tc = find_transformer(tc_id)
             if not tc:
                 return jsonify({"error": "Transformer not found"}), 404
 
@@ -563,7 +639,7 @@ def getQuestions():
 @poleSurvey.route('/material-info/<poleId>', methods=['POST'])
 def fillMaterial(poleId):
     try:
-        pole = Pole.objects(id = poleId).first()
+        pole = find_pole(poleId)
         if not pole:
             return jsonify({"error": "Pole not found"}), 404
         requestPoleType = request.args.get("poleType", "new_proposed")  # Default to 'new_proposed' if not provided
@@ -605,18 +681,19 @@ def fillMaterial(poleId):
 @poleSurvey.route("/export/pole-schedule/<feeder_id>", methods=["GET"])
 def export_feeder_poles(feeder_id):
     try:
-        # def export_feeder_poles(feeder_id):
-        transformers = Transformer.objects(feeder=feeder_id)
+        feeder = find_feeder(feeder_id)
+        if not feeder:
+            return jsonify({"error": "Feeder not found"}), 404
+        transformers = Transformer.objects(feeder=feeder)
         transformer_ids = [t.id for t in transformers]
 
         # Step 2: Get all poles for these transformers
         poles = Pole.objects(tc__in=transformer_ids)
 
         # Step 3: Get feeder, subdivision info
-        feeder = Feeder.objects.get(id=feeder_id)
-        subdivision = feeder.subdivision.name
+        subdivision = feeder.subdivision.name if feeder.subdivision else ""
         feeder_name = feeder.name
-        excel_stream = generate_feeder_pole_excel(feeder_name,subdivision, poles)
+        excel_stream = generate_feeder_pole_excel(feeder_name, subdivision, poles)
 
         return send_file(
             excel_stream,
