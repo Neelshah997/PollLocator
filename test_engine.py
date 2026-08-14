@@ -206,6 +206,27 @@ class PollLocatorTestEngine(unittest.TestCase):
 
         print("  [PASSED] Transformer Update & Attached Poles Integrity Verification")
 
+    def test_04b_poles_feeder_query(self):
+        """Test GET /poles using feeder_id, feederId, and feeder name aliases with TC grouping and Action Screen limits."""
+        feeder_id = str(self.feeder.id)
+        
+        res1 = self.client.get(f'/poles?feeder_id={feeder_id}')
+        self.assertEqual(res1.status_code, 200)
+        data1 = res1.get_json()
+        self.assertIn("transformers", data1)
+        self.assertIn("action_screen_poles", data1)
+        self.assertIn("poles", data1)
+        
+        res2 = self.client.get(f'/poles?feederId={feeder_id}')
+        self.assertEqual(res2.status_code, 200)
+        
+        res3 = self.client.get(f'/poles?feeder={self.feeder.name}')
+        self.assertEqual(res3.status_code, 200)
+        
+        res_body = self.client.get('/poles', json={"feeder_id": feeder_id})
+        self.assertEqual(res_body.status_code, 200)
+        print("  [PASSED] GET /poles Feeder Query, TC Grouping & Action Screen Poles")
+
     # --- POLE ENDPOINT TESTS ---
 
     def test_05_pole_online_mode_create(self):

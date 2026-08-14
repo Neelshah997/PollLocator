@@ -614,22 +614,63 @@ def create_pole():
 def get_pole_numbers_by_tc():
     if request.method == 'GET':
         try:
-            tc_id = request.args.get('tc_id') or request.args.get('tc_number') or request.args.get('tc')
-            feeder_id = request.args.get('feeder_id')
+            body_data = request.get_json(silent=True) or request.form or {}
+            
+            tc_id = (request.args.get('tc_id') or request.args.get('tc_number') or request.args.get('tc')
+                     or body_data.get('tc_id') or body_data.get('tc_number') or body_data.get('tc'))
+            feeder_id = (request.args.get('feeder_id') or request.args.get('feederId') or request.args.get('feeder') or request.args.get('feeder_name')
+                         or body_data.get('feeder_id') or body_data.get('feederId') or body_data.get('feeder') or body_data.get('feeder_name'))
+
+            if tc_id and isinstance(tc_id, str):
+                tc_id = tc_id.strip().strip('"').strip("'")
+            if feeder_id and isinstance(feeder_id, str):
+                feeder_id = feeder_id.strip().strip('"').strip("'")
 
             if feeder_id:
                 feeder = find_feeder(feeder_id)
                 if not feeder:
                     return jsonify({"error": "Feeder not found"}), 404
-                tcs = Transformer.objects(feeder=feeder)
-                poles = Pole.objects(tc__in=tcs)
-                poles_data = [{
-                    "id": str(pole.id),
-                    "pole_number": pole.pole_number,
-                    "tc_number": pole.tc.tc_number if pole.tc else None,
-                    "is_existing": pole.is_existing,
-                } for pole in poles]
-                return jsonify({"pole_numbers": poles_data, "poles": [p.to_json() for p in poles]}), 200
+                
+                # Fetch transformers belonging to this feeder ordered chronologically
+                tcs = Transformer.objects(feeder=feeder).order_by('created_at')
+                
+                tc_grouped = []
+                all_feeder_poles = []
+                poles_data = []
+
+                for tc_obj in tcs:
+                    # Fetch poles under each TC sorted in time-basis order (chronological)
+                    tc_poles = list(Pole.objects(tc=tc_obj).order_by('created_at'))
+                    
+                    tc_info = {
+                        "tc_id": str(tc_obj.id),
+                        "tc_number": tc_obj.tc_number,
+                        "tc_name": tc_obj.name,
+                        "capacity": tc_obj.capacity,
+                        "total_poles_count": len(tc_poles),
+                        "action_screen_poles": [p.to_json() for p in tc_poles[:5]],  # Top 5 for Action Screen
+                        "poles": [p.to_json() for p in tc_poles]                      # All poles for View More screen
+                    }
+                    tc_grouped.append(tc_info)
+
+                    for p in tc_poles:
+                        all_feeder_poles.append(p)
+                        poles_data.append({
+                            "id": str(p.id),
+                            "pole_number": p.pole_number,
+                            "tc_number": tc_obj.tc_number,
+                            "is_existing": p.is_existing,
+                            "created_at": p.created_at.isoformat() if p.created_at else None
+                        })
+
+                return jsonify({
+                    "feeder_id": str(feeder.id),
+                    "feeder_name": feeder.name,
+                    "transformers": tc_grouped,
+                    "action_screen_poles": [p.to_json() for p in all_feeder_poles[:5]],  # Overall top 5 for Action Screen
+                    "pole_numbers": poles_data,
+                    "poles": [p.to_json() for p in all_feeder_poles]
+                }), 200
 
             if not tc_id:
                 return jsonify({"error": "tc_id, tc_number or feeder_id is required"}), 400
@@ -638,13 +679,23 @@ def get_pole_numbers_by_tc():
             if not tc:
                 return jsonify({"error": "Transformer not found"}), 404
 
-            poles = Pole.objects(tc=tc)
+            # Query poles for the TC sorted in time-basis order (chronological)
+            poles = list(Pole.objects(tc=tc).order_by('created_at'))
             pole_numbers = [{
-                    "id": str(pole.id),
-                    "pole_number": pole.pole_number,
-                } for pole in poles]
+                "id": str(pole.id),
+                "pole_number": pole.pole_number,
+                "tc_number": tc.tc_number,
+                "is_existing": pole.is_existing,
+                "created_at": pole.created_at.isoformat() if pole.created_at else None
+            } for pole in poles]
 
-            return jsonify({"pole_numbers": pole_numbers, "poles": [p.to_json() for p in poles]}), 200
+            return jsonify({
+                "tc_id": str(tc.id),
+                "tc_number": tc.tc_number,
+                "action_screen_poles": [p.to_json() for p in poles[:5]],  # Top 5 for Action Screen
+                "pole_numbers": pole_numbers,
+                "poles": [p.to_json() for p in poles]                     # All poles for View More screen
+            }), 200
         except Exception as e:
             print(traceback.format_exc())
             return jsonify({"error": str(e)}), 500
