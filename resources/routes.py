@@ -394,13 +394,18 @@ def handle_transformer():
     if request.method == 'GET':
         try:
             tc_id = request.args.get('tc_id') or request.args.get('tc_number')
+            feeder_id = request.args.get('feeder_id')
             if tc_id:
                 tc = find_transformer(tc_id)
                 if not tc:
                     return jsonify({"error": "Transformer not found"}), 404
                 return jsonify({"tc": tc.to_json()}), 200
 
-            tcs = Transformer.objects()
+            if feeder_id:
+                feeder = find_feeder(feeder_id)
+                tcs = Transformer.objects(feeder=feeder) if feeder else []
+            else:
+                tcs = Transformer.objects()
             return jsonify({"tcs": [tc.to_json() for tc in tcs]}), 200
         except Exception as e:
             print(traceback.format_exc())
@@ -610,8 +615,24 @@ def get_pole_numbers_by_tc():
     if request.method == 'GET':
         try:
             tc_id = request.args.get('tc_id') or request.args.get('tc_number') or request.args.get('tc')
+            feeder_id = request.args.get('feeder_id')
+
+            if feeder_id:
+                feeder = find_feeder(feeder_id)
+                if not feeder:
+                    return jsonify({"error": "Feeder not found"}), 404
+                tcs = Transformer.objects(feeder=feeder)
+                poles = Pole.objects(tc__in=tcs)
+                poles_data = [{
+                    "id": str(pole.id),
+                    "pole_number": pole.pole_number,
+                    "tc_number": pole.tc.tc_number if pole.tc else None,
+                    "is_existing": pole.is_existing,
+                } for pole in poles]
+                return jsonify({"pole_numbers": poles_data, "poles": [p.to_json() for p in poles]}), 200
+
             if not tc_id:
-                return jsonify({"error": "tc_id or tc_number is required"}), 400
+                return jsonify({"error": "tc_id, tc_number or feeder_id is required"}), 400
 
             tc = find_transformer(tc_id)
             if not tc:
@@ -623,7 +644,7 @@ def get_pole_numbers_by_tc():
                     "pole_number": pole.pole_number,
                 } for pole in poles]
 
-            return jsonify({"pole_numbers": pole_numbers}), 200
+            return jsonify({"pole_numbers": pole_numbers, "poles": [p.to_json() for p in poles]}), 200
         except Exception as e:
             print(traceback.format_exc())
             return jsonify({"error": str(e)}), 500
